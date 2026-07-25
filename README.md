@@ -178,7 +178,7 @@ constancia-habit-tracker/
 ├── .github/workflows/deploy.yml   # despliegue automático a GitHub Pages
 ├── public/
 │   ├── logo-kroton.jpg
-│   └── favicon-kroton.jpg
+│   └── favicon-kroton.png
 ├── src/
 │   ├── lib/
 │   │   ├── supabase.ts            # cliente de Supabase

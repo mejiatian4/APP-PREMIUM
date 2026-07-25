@@ -131,7 +131,7 @@ export function renderAuthScreen(root: HTMLElement): void {
     el('div', { class: 'brand brand--auth' }, [
       el('img', {
         class: 'brand__mark',
-        src: `${import.meta.env.BASE_URL}logo-kroton.jpg`,
+        src: `${import.meta.env.BASE_URL}logo-kroton-naranja.png`,
         alt: 'Kroton',
       }),
       el('span', { class: 'brand__name' }, ['KROTON HABITOS']),

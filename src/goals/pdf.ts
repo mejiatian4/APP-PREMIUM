@@ -18,7 +18,7 @@ function formatDate(iso: string | null): string {
 /** Trae el logo público y lo convierte a data URL para incrustarlo en el PDF. */
 async function loadLogoDataUrl(): Promise<string | null> {
   try {
-    const res = await fetch(`${import.meta.env.BASE_URL}logo-kroton.jpg`);
+    const res = await fetch(`${import.meta.env.BASE_URL}logo-kroton-naranja.png`);
     const blob = await res.blob();
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();

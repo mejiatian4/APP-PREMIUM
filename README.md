@@ -177,7 +177,7 @@ Para un dominio propio o publicación en la raíz (`usuario.github.io`), usa `BA
 constancia-habit-tracker/
 ├── .github/workflows/deploy.yml   # despliegue automático a GitHub Pages
 ├── public/
-│   ├── logo-kroton.jpg
+│   ├── logo-kroton-naranja.png
 │   └── favicon-kroton.png
 ├── src/
 │   ├── lib/

@@ -45,10 +45,9 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   const brand = el('div', { class: 'brand' }, [
     el('img', {
       class: 'brand__mark',
-      src: `${import.meta.env.BASE_URL}logo-kroton.jpg`,
+      src: `${import.meta.env.BASE_URL}logo-kroton-naranja.png`,
       alt: 'Kroton',
     }),
-    el('span', { class: 'brand__name' }, ['KROTON HABITOS']),
   ]);
 
   const settingsBtn = el('button', { class: 'btn btn--icon', type: 'button', 'aria-label': 'Configuración' }, [
@@ -68,6 +67,13 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
       el('span', { class: 'topbar__email', title: userEmail }, [userEmail]),
       settingsBtn,
       logoutBtn,
+    ]),
+  ]);
+
+  const headerHero = el('div', { class: 'header-hero' }, [
+    el('span', { class: 'header-hero__kicker' }, ['Hábitos · Metas & Coach']),
+    el('p', { class: 'header-hero__desc' }, [
+      'Registra tus hábitos día a día, organiza tus metas y recibe orientación personalizada de tu coach con inteligencia artificial.',
     ]),
   ]);
 
@@ -217,7 +223,7 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   tabCoach.addEventListener('click', () => showView('coach'));
 
   const main = el('main', { class: 'dashboard' }, [tabs, habitsView, goalsView, coachView]);
-  root.append(el('div', { class: 'app' }, [topbar, main]));
+  root.append(el('div', { class: 'app' }, [topbar, headerHero, main]));
 
   // Los canvas ya están en el DOM: ahora sí se pueden crear las gráficas.
   const dailyChart = new DailyChart(dailyCanvas);

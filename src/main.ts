@@ -4,8 +4,11 @@ import { supabase } from './lib/supabase';
 import { renderAuthScreen } from './auth/auth';
 import { renderDashboard } from './habits/dashboard';
 import { qs } from './ui/dom';
+import { initHeaderAutoHide } from './ui/scrollHeader';
 
 const app = qs<HTMLElement>('#app');
+
+initHeaderAutoHide();
 
 let view: 'auth' | 'dashboard' | null = null;
 let userId: string | null = null;

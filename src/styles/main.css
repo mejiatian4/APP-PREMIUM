@@ -119,6 +119,11 @@ button {
   background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+  will-change: transform;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ig-topbar.is-hidden {
+  transform: translateY(-100%);
 }
 .ig-icon-wrap {
   width: 22px;
@@ -167,15 +172,10 @@ button {
   gap: 10px;
 }
 .brand__mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  background: #000;
-  border: 1.5px solid rgba(252, 184, 39, 0.45);
-  box-shadow: 0 0 14px rgba(252, 184, 39, 0.28);
+  width: 44px;
+  height: 44px;
   object-fit: contain;
   flex: none;
-  padding: 3px;
 }
 .brand__name {
   font-family: var(--font-display);
@@ -193,20 +193,39 @@ button {
   min-height: 100vh;
   position: relative;
   z-index: 1;
+  padding-top: calc(70px + 28px);
 }
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 16px;
-  padding: 16px clamp(16px, 4vw, 40px);
+  padding: 14px 40px;
+  min-height: calc(70px + 28px);
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 70%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  position: sticky;
+  position: fixed;
   top: 44px;
+  left: 0;
+  right: 0;
   z-index: 10;
+  will-change: transform;
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.topbar.is-hidden {
+  transform: translateY(-100%);
+}
+.topbar .brand {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+.topbar .brand__mark {
+  width: 70px;
+  height: 70px;
 }
 .topbar__user {
   display: flex;
@@ -220,6 +239,31 @@ button {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ---------------- Hero del header ---------------- */
+.header-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 28px clamp(16px, 4vw, 40px) 4px;
+}
+.header-hero__kicker {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+.header-hero__desc {
+  margin: 0;
+  max-width: 520px;
+  font-size: 0.98rem;
+  line-height: 1.6;
+  color: var(--text-muted);
 }
 
 .dashboard {
@@ -1120,8 +1164,8 @@ button {
   margin-bottom: 22px;
 }
 .brand--auth .brand__mark {
-  width: 44px;
-  height: 44px;
+  width: 56px;
+  height: 56px;
 }
 .brand--auth .brand__name {
   font-size: 1.6rem;
@@ -1387,14 +1431,9 @@ button {
   color: var(--text-muted);
 }
 .footer-logo {
-  width: 44px;
-  height: 44px;
+  width: 52px;
+  height: 52px;
   margin: 0 auto 10px;
-  border-radius: 12px;
-  background: #000;
-  border: 1.5px solid rgba(252, 184, 39, 0.4);
-  box-shadow: 0 0 20px rgba(252, 184, 39, 0.2);
-  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1403,7 +1442,6 @@ button {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  padding: 4px;
 }
 .footer-brand {
   display: block;
@@ -1840,8 +1878,14 @@ button {
   .stats-grid {
     grid-template-columns: 1fr;
   }
+  .topbar {
+    padding: 14px 16px;
+  }
   .topbar__email {
     display: none;
+  }
+  .header-hero__desc {
+    font-size: 0.9rem;
   }
   .weeknav {
     justify-content: center;

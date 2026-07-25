@@ -61,9 +61,16 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   ]);
   logoutBtn.addEventListener('click', () => void signOut());
 
+  const shopLink = el(
+    'a',
+    { class: 'topbar__shop', href: 'https://krotonoficial.com/', target: '_blank', rel: 'noopener' },
+    [icons.shop(), el('span', {}, ['Ir a la tienda'])],
+  );
+
   const topbar = el('header', { class: 'topbar' }, [
     brand,
     el('div', { class: 'topbar__user' }, [
+      shopLink,
       el('span', { class: 'topbar__email', title: userEmail }, [userEmail]),
       settingsBtn,
       logoutBtn,

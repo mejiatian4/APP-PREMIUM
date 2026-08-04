@@ -207,6 +207,11 @@ declare
   v_rows int;
   v_recent_attempts int;
 begin
+  -- El frontend ya manda el código en mayúsculas y sin espacios, pero
+  -- normalizamos también acá por si alguien llama la función directo
+  -- (sin pasar por la app) con minúsculas o espacios de más.
+  p_code := upper(trim(p_code));
+
   if auth.uid() is null then
     raise exception 'No autenticado.';
   end if;
@@ -238,21 +243,57 @@ $$;
 revoke all on function public.redeem_access_code(text) from public;
 grant execute on function public.redeem_access_code(text) to authenticated;
 
--- Genera los 1000 códigos de 6 dígitos únicos (solo la primera vez que se
--- corre este archivo: si la tabla ya tiene códigos, no hace nada, así que
--- es seguro volver a pegar y correr todo el schema.sql las veces que quieras).
+-- Genera los 1000 códigos (3 letras + 3 números, ej. "KRT482"). Se excluyen
+-- I, L, O de las letras y 0, 1 de los números por ser fáciles de confundir
+-- al leerlos o imprimirlos. ~6.2 millones de combinaciones posibles
+-- (23³ × 8³), bastante más difícil de adivinar que los 6 dígitos del
+-- formato anterior (1 millón). Si los 1000 códigos que ya existen calzan
+-- exactamente con el patrón "3 letras + 3 números" no hace nada; si no
+-- (por ejemplo el formato numérico anterior, o códigos más cortos de lo
+-- debido — ver nota de abajo), los reemplaza. Es seguro volver a pegar y
+-- correr todo el schema.sql las veces que quieras.
+--
+-- Nota: la primera versión de este bloque usaba
+-- "(random() * length(letters))::int" para elegir cada carácter al azar.
+-- En Postgres, convertir un numeric a int REDONDEA (no trunca como en
+-- JavaScript/C), así que esa cuenta a veces daba un índice uno más allá
+-- del final del texto; substr() con un índice fuera de rango no da error,
+-- simplemente devuelve texto vacío — por eso salían códigos de 3, 4 o 5
+-- caracteres en vez de 6. floor() antes de convertir a int corrige esto.
 do $$
+declare
+  letters constant text := 'ABCDEFGHJKMNPQRSTUVWXYZ'; -- sin I, L, O
+  digits  constant text := '23456789';                -- sin 0, 1
+  v_code text;
+  v_inserted int := 0;
+  v_rows int;
+  v_attempts int := 0;
 begin
-  if (select count(*) from public.access_codes) = 0 then
-    insert into public.access_codes (code)
-    select lpad(n::text, 6, '0')
-    from (
-      select n
-      from generate_series(0, 999999) as n
-      order by random()
-      limit 1000
-    ) sub;
+  if (
+    select count(*) = 1000 and count(*) filter (where code ~ '^[A-Z]{3}[0-9]{3}$') = 1000
+    from public.access_codes
+  ) then
+    return; -- los 1000 códigos ya están bien, con el formato correcto
   end if;
+
+  delete from public.access_codes where user_id is null;
+
+  while v_inserted < 1000 and v_attempts < 20000 loop
+    v_attempts := v_attempts + 1;
+    v_code :=
+      substr(letters, floor(random() * length(letters))::int + 1, 1) ||
+      substr(letters, floor(random() * length(letters))::int + 1, 1) ||
+      substr(letters, floor(random() * length(letters))::int + 1, 1) ||
+      substr(digits,  floor(random() * length(digits))::int + 1, 1) ||
+      substr(digits,  floor(random() * length(digits))::int + 1, 1) ||
+      substr(digits,  floor(random() * length(digits))::int + 1, 1);
+
+    insert into public.access_codes (code) values (v_code)
+      on conflict (code) do nothing;
+
+    get diagnostics v_rows = row_count;
+    v_inserted := v_inserted + v_rows;
+  end loop;
 end $$;
 
 -- ----------------------------------------------------------------

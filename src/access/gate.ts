@@ -13,29 +13,30 @@ export function renderAccessGate(root: HTMLElement, onSuccess: () => void): void
 
   const title = el('h1', { class: 'auth__title' }, ['Activa tu cuenta']);
   const subtitle = el('p', { class: 'auth__subtitle' }, [
-    'Introduce el código de 6 dígitos que está pegado en la tirilla de la prenda que adquiriste en KROTON.',
+    'Introduce el código de 6 caracteres que está pegado en la tirilla de la prenda que adquiriste en KROTON.',
   ]);
 
   const code = el('input', {
     type: 'text',
     class: 'field__input field__input--code',
     id: 'access-code',
-    inputmode: 'numeric',
+    inputmode: 'text',
+    autocapitalize: 'characters',
     autocomplete: 'off',
     maxLength: 6,
-    placeholder: '000000',
+    placeholder: 'ABC234',
     required: true,
   }) as HTMLInputElement;
 
   code.addEventListener('input', () => {
-    code.value = code.value.replace(/\D/g, '').slice(0, 6);
+    code.value = code.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   });
 
   const submit = el('button', { type: 'submit', class: 'btn btn--primary btn--block' }, ['Validar código']);
 
   const form = el('form', { class: 'auth__form', novalidate: true }, [
     el('div', { class: 'field' }, [
-      el('label', { class: 'field__label', for: 'access-code' }, ['Código de 6 dígitos']),
+      el('label', { class: 'field__label', for: 'access-code' }, ['Código de 6 caracteres']),
       code,
     ]),
     submit,
@@ -45,7 +46,7 @@ export function renderAccessGate(root: HTMLElement, onSuccess: () => void): void
     e.preventDefault();
     const value = code.value.trim();
     if (value.length !== 6) {
-      toast('El código debe tener 6 dígitos.', 'error');
+      toast('El código debe tener 6 caracteres.', 'error');
       return;
     }
 

@@ -97,9 +97,9 @@ El coach corre en una **Supabase Edge Function** (`supabase/functions/ai-coach`)
    npx supabase functions deploy ai-coach
    ```
 
-Con eso, la pestaña **Coach** de la app ya puede responder. Si necesitas ver el detalle de un error, revisa **Project → Edge Functions → ai-coach → Logs** en el dashboard de Supabase (el CLI no trae comando de logs en esta versión).
+Con eso, la pestaña **Coach** de la aplicación ya puede responder. Si necesitas ver el detalle de un error, revisa **Project → Edge Functions → ai-coach → Logs** en el dashboard de Supabase (el CLI no trae comando de logs en esta versión).
 
-> El coach solo lee los hábitos, registros y metas del usuario que está haciendo la pregunta (usa su propio token de sesión, así que las políticas de RLS aplican igual que en el resto de la app). Nunca inventa datos que no estén en ese contexto.
+> El coach solo lee los hábitos, registros y metas del usuario que está haciendo la pregunta (usa su propio token de sesión, así que las políticas de RLS aplican igual que en el resto de la aplicación). Nunca inventa datos que no estén en ese contexto.
 
 ---
 
@@ -134,7 +134,7 @@ npm run preview   # sirve el build de producción para revisarlo antes de desple
 
 ## 4. Desplegar en GitHub Pages
 
-El repositorio incluye un workflow en [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) que construye y publica la app automáticamente.
+El repositorio incluye un workflow en [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) que construye y publica la aplicación automáticamente.
 
 **Pasos:**
 
@@ -227,7 +227,7 @@ constancia-habit-tracker/
 
 ---
 
-## Cómo usar la app
+## Cómo usar la aplicación
 
 1. Crea una cuenta o inicia sesión.
 2. En la pestaña **Hábitos**: pulsa **Hábito** para agregar el primero, elige un color y marca las casillas de los días que lo cumpliste. Revisa tu racha, el mapa de calor y el % por hábito en las tarjetas de métricas.
@@ -239,7 +239,7 @@ constancia-habit-tracker/
 
 ## Notas
 
-- En el plan gratuito de Supabase, un proyecto se pausa tras un periodo de inactividad; con el uso diario de la app esto no ocurre, y si llegara a pausarse se reactiva desde el panel de Supabase.
+- En el plan gratuito de Supabase, un proyecto se pausa tras un periodo de inactividad; con el uso diario de la aplicación esto no ocurre, y si llegara a pausarse se reactiva desde el panel de Supabase.
 - El plan gratuito de Groq tiene límites de peticiones por minuto/día, de sobra para un uso personal.
 - El bundle incluye Chart.js, jsPDF y el SDK de Supabase; jsPDF se carga de forma diferida (solo al pedir el PDF) para no engordar la carga inicial.
 

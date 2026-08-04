@@ -276,30 +276,43 @@ button {
 /* ---------------- Subheader: secciones de la app ---------------- */
 .app-nav {
   display: flex;
-  justify-content: center;
-  gap: 10px;
-  padding: 24px clamp(16px, 4vw, 40px) 0;
+  justify-content: flex-start;
+  gap: 22px;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 16px clamp(16px, 4vw, 40px) 0;
+  border-bottom: 1px solid var(--border);
 }
 .app-nav__item {
-  border: 1px solid var(--border);
-  background: var(--surface-2);
+  border: none;
+  background: transparent;
   color: var(--text-muted);
   font-family: var(--font-display);
-  font-size: 1rem;
+  font-size: 1.05rem;
   letter-spacing: 0.03em;
-  padding: 9px 24px;
-  border-radius: 999px;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  padding: 4px 2px 14px;
+  position: relative;
+  transition: color 0.15s;
+}
+.app-nav__item::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--grad);
+  opacity: 0;
+  transition: opacity 0.15s;
 }
 .app-nav__item:hover {
   color: var(--text);
-  border-color: rgba(252, 184, 39, 0.4);
 }
 .app-nav__item--active {
-  background: var(--grad-btn);
-  color: #000;
-  border-color: transparent;
-  font-weight: 700;
+  color: var(--brand);
+}
+.app-nav__item--active::after {
+  opacity: 1;
 }
 
 /* ---------------- Hero del header ---------------- */

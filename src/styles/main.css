@@ -23,6 +23,7 @@
   --flame: #fcb827;
   --danger: #ff5555;
   --danger-soft: rgba(255, 85, 85, 0.14);
+  --success: #3ddc84;
 
   /* Tokens leídos por las gráficas (Chart.js) */
   --accent: #fcb827;
@@ -1324,6 +1325,37 @@ button {
   letter-spacing: 0.5em;
   padding-left: 22px;
 }
+.field__input-wrap {
+  position: relative;
+}
+.field__input-wrap .field__input {
+  width: 100%;
+  padding-right: 44px;
+}
+.field__visibility {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+}
+.field__visibility:hover {
+  color: var(--brand);
+  background: var(--brand-soft);
+}
+.field__visibility svg {
+  width: 18px;
+  height: 18px;
+}
 .field__hint {
   margin: 0;
   font-size: 0.78rem;
@@ -1332,6 +1364,12 @@ button {
 }
 .field__hint:empty {
   display: none;
+}
+.field__hint--ok {
+  color: var(--success);
+}
+.field__hint--error {
+  color: var(--danger);
 }
 .field__error {
   margin: -8px 0 0;

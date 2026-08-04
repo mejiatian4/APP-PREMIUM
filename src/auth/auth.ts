@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { el, clear } from '../ui/dom';
+import { icons } from '../ui/icons';
 import { toast, errorMessage } from '../ui/toast';
 
 export async function signOut(): Promise<void> {
@@ -17,6 +18,31 @@ function passwordStrengthError(value: string): string | null {
   if (!/[0-9]/.test(value)) return 'La contraseña debe incluir al menos un número.';
   if (!/[^a-zA-Z0-9]/.test(value)) return 'La contraseña debe incluir al menos un carácter especial (ej. !@#$%).';
   return null;
+}
+
+/** Campo de contraseña con botón para mostrar/ocultar el texto. */
+function passwordField(attrs: Record<string, string | number | boolean>): {
+  input: HTMLInputElement;
+  wrap: HTMLElement;
+} {
+  const input = el('input', { type: 'password', class: 'field__input', ...attrs }) as HTMLInputElement;
+  const toggle = el('button', {
+    type: 'button',
+    class: 'field__visibility',
+    'aria-label': 'Mostrar contraseña',
+  }, [icons.eye()]);
+
+  let visible = false;
+  toggle.addEventListener('click', () => {
+    visible = !visible;
+    input.type = visible ? 'text' : 'password';
+    clear(toggle);
+    toggle.append(visible ? icons.eyeOff() : icons.eye());
+    toggle.setAttribute('aria-label', visible ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  });
+
+  const wrap = el('div', { class: 'field__input-wrap' }, [input, toggle]);
+  return { input, wrap };
 }
 
 /**
@@ -41,16 +67,45 @@ export function renderAuthScreen(root: HTMLElement): void {
     required: true,
   });
 
-  const password = el('input', {
-    type: 'password',
-    class: 'field__input',
+  const { input: password, wrap: passwordWrap } = passwordField({
     id: 'password',
-    placeholder: 'Mínimo 6 caracteres',
+    placeholder: 'Mínimo 8 caracteres',
     autocomplete: 'current-password',
     required: true,
     minLength: 6,
   });
   const passwordHint = el('p', { class: 'field__hint' });
+
+  const { input: confirmPassword, wrap: confirmPasswordWrap } = passwordField({
+    id: 'confirm-password',
+    placeholder: 'Repite tu contraseña',
+    autocomplete: 'new-password',
+  });
+  const confirmHint = el('p', { class: 'field__hint' });
+  const confirmField = el('div', { class: 'field' }, [
+    el('label', { class: 'field__label', for: 'confirm-password' }, ['Confirmar contraseña']),
+    confirmPasswordWrap,
+    confirmHint,
+  ]);
+
+  function updateConfirmHint(): void {
+    if (mode !== 'signup' || !confirmPassword.value) {
+      confirmHint.textContent = '';
+      confirmHint.classList.remove('field__hint--ok', 'field__hint--error');
+      return;
+    }
+    if (confirmPassword.value === password.value) {
+      confirmHint.textContent = 'Las contraseñas coinciden.';
+      confirmHint.classList.add('field__hint--ok');
+      confirmHint.classList.remove('field__hint--error');
+    } else {
+      confirmHint.textContent = 'Las contraseñas no coinciden.';
+      confirmHint.classList.add('field__hint--error');
+      confirmHint.classList.remove('field__hint--ok');
+    }
+  }
+  password.addEventListener('input', updateConfirmHint);
+  confirmPassword.addEventListener('input', updateConfirmHint);
 
   const submit = el('button', { type: 'submit', class: 'btn btn--primary btn--block' });
   const toggle = el('button', { type: 'button', class: 'auth__toggle' });
@@ -64,9 +119,12 @@ export function renderAuthScreen(root: HTMLElement): void {
       switchText.textContent = '¿Aún no tienes cuenta?';
       toggle.textContent = 'Crear una';
       password.setAttribute('autocomplete', 'current-password');
-      password.setAttribute('placeholder', 'Mínimo 6 caracteres');
+      password.setAttribute('placeholder', 'Mínimo 8 caracteres');
       password.setAttribute('minlength', '6');
       passwordHint.textContent = '';
+      confirmField.style.display = 'none';
+      confirmPassword.value = '';
+      updateConfirmHint();
     } else {
       title.textContent = 'Crea tu cuenta';
       subtitle.textContent = 'Empieza a registrar tus hábitos hoy mismo.';
@@ -77,6 +135,7 @@ export function renderAuthScreen(root: HTMLElement): void {
       password.setAttribute('placeholder', 'Mínimo 8 caracteres');
       password.setAttribute('minlength', '8');
       passwordHint.textContent = 'Debe incluir letras, números y un carácter especial (ej. !@#$%).';
+      confirmField.style.display = '';
     }
   }
 
@@ -92,9 +151,10 @@ export function renderAuthScreen(root: HTMLElement): void {
     ]),
     el('div', { class: 'field' }, [
       el('label', { class: 'field__label', for: 'password' }, ['Contraseña']),
-      password,
+      passwordWrap,
       passwordHint,
     ]),
+    confirmField,
     submit,
   ]);
 
@@ -112,6 +172,10 @@ export function renderAuthScreen(root: HTMLElement): void {
       const strengthError = passwordStrengthError(passwordValue);
       if (strengthError) {
         toast(strengthError, 'error');
+        return;
+      }
+      if (passwordValue !== confirmPassword.value) {
+        toast('Las contraseñas no coinciden.', 'error');
         return;
       }
     }

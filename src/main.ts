@@ -15,9 +15,17 @@ const app = qs<HTMLElement>('#app');
 initHeaderAutoHide();
 initShopCarousel();
 
+// El enlace de "recuperar contraseña" trae `type=recovery` en el hash de la
+// URL. Lo capturamos ya mismo (síncrono, antes de que Supabase lo procese y
+// lo limpie) porque en una carga de página nueva —justo lo que pasa al abrir
+// el enlace del correo— Supabase suele emitir INITIAL_SESSION en vez de
+// PASSWORD_RECOVERY, así que no podemos fiarnos solo del nombre del evento.
+const urlIsPasswordRecovery = /type=recovery/.test(window.location.hash);
+
 type View = 'auth' | 'gate' | 'dashboard' | 'reset-password';
 let view: View | null = null;
 let userId: string | null = null;
+let recoveryHandled = false;
 
 async function goPastAuth(session: Session): Promise<void> {
   let hasCode: string | null = null;
@@ -46,7 +54,11 @@ async function applySession(event: AuthChangeEvent, session: Session | null): Pr
   // eventos de sesión de fondo para no sacarlo de esa pantalla a mitad de camino.
   if (view === 'reset-password') return;
 
-  if (event === 'PASSWORD_RECOVERY' && session) {
+  const isRecovery = !recoveryHandled && !!session && (event === 'PASSWORD_RECOVERY' || urlIsPasswordRecovery);
+  if (isRecovery && session) {
+    recoveryHandled = true;
+    // Limpiamos el hash para que un refresh no vuelva a caer aquí.
+    history.replaceState(null, '', window.location.pathname + window.location.search);
     view = 'reset-password';
     userId = session.user.id;
     renderResetPasswordScreen(app, () => {

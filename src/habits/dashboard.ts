@@ -30,6 +30,7 @@ import { renderGoalsBoard } from '../goals/board';
 import { openSettingsPanel } from '../settings/panel';
 import { createQuoteCard } from '../ui/quotes';
 import { renderCoachChat } from '../coach/chat';
+import { renderFitPlan } from '../fitplan/render';
 
 const key = (habitId: string, dateISO: string) => `${habitId}|${dateISO}`;
 
@@ -68,21 +69,54 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   );
 
   const topbar = el('header', { class: 'topbar' }, [
+    shopLink,
     brand,
     el('div', { class: 'topbar__user' }, [
-      shopLink,
       el('span', { class: 'topbar__email', title: userEmail }, [userEmail]),
       settingsBtn,
       logoutBtn,
     ]),
   ]);
 
-  const headerHero = el('div', { class: 'header-hero' }, [
-    el('span', { class: 'header-hero__kicker' }, ['Hábitos · Metas & Coach']),
-    el('p', { class: 'header-hero__desc' }, [
-      'Registra tus hábitos día a día, organiza tus metas y recibe orientación personalizada de tu coach con inteligencia artificial.',
-    ]),
+  const heroKicker = el('span', { class: 'header-hero__kicker' }, ['Hábitos · Metas & Coach']);
+  const heroDesc = el('p', { class: 'header-hero__desc' }, [
+    'Registra tus hábitos día a día, organiza tus metas y recibe orientación personalizada de tu coach con inteligencia artificial.',
   ]);
+  const headerHero = el('div', { class: 'header-hero' }, [heroKicker, heroDesc]);
+
+  // ---- Subheader: secciones de la app (Hábitos / FitPlan) ----
+  const navHabitos = el('button', { class: 'app-nav__item app-nav__item--active', type: 'button' }, ['Hábitos']);
+  const navFitplan = el('button', { class: 'app-nav__item', type: 'button' }, ['FitPlan']);
+  const appNav = el('nav', { class: 'app-nav' }, [navHabitos, navFitplan]);
+
+  const SECTION_HERO = {
+    habitos: {
+      kicker: 'Hábitos · Metas & Coach',
+      desc: 'Registra tus hábitos día a día, organiza tus metas y recibe orientación personalizada de tu coach con inteligencia artificial.',
+    },
+    fitplan: {
+      kicker: 'FitPlan · Entrenamiento & Nutrición',
+      desc: 'Ingresa tus datos y obtén un plan personalizado de entrenamiento y nutrición generado por inteligencia artificial.',
+    },
+  } as const;
+
+  const fitplanSection = el('div', { class: 'fitplan-section', style: 'display:none' });
+  let fitplanLoaded = false;
+
+  function showAppSection(section: 'habitos' | 'fitplan'): void {
+    main.style.display = section === 'habitos' ? '' : 'none';
+    fitplanSection.style.display = section === 'fitplan' ? '' : 'none';
+    navHabitos.classList.toggle('app-nav__item--active', section === 'habitos');
+    navFitplan.classList.toggle('app-nav__item--active', section === 'fitplan');
+    heroKicker.textContent = SECTION_HERO[section].kicker;
+    heroDesc.textContent = SECTION_HERO[section].desc;
+    if (section === 'fitplan' && !fitplanLoaded) {
+      fitplanLoaded = true;
+      renderFitPlan(fitplanSection);
+    }
+  }
+  navHabitos.addEventListener('click', () => showAppSection('habitos'));
+  navFitplan.addEventListener('click', () => showAppSection('fitplan'));
 
   // Tarjeta: progreso de hoy (dona)
   const dailyCanvas = el('canvas', { 'aria-label': 'Progreso de hoy' }) as HTMLCanvasElement;
@@ -230,7 +264,7 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   tabCoach.addEventListener('click', () => showView('coach'));
 
   const main = el('main', { class: 'dashboard' }, [tabs, habitsView, goalsView, coachView]);
-  root.append(el('div', { class: 'app' }, [topbar, headerHero, main]));
+  root.append(el('div', { class: 'app' }, [topbar, appNav, headerHero, main, fitplanSection]));
 
   // Los canvas ya están en el DOM: ahora sí se pueden crear las gráficas.
   const dailyChart = new DailyChart(dailyCanvas);

@@ -13,14 +13,15 @@ function getContainer(): HTMLElement {
   return container;
 }
 
-export function toast(message: string, kind: 'success' | 'error' = 'success'): void {
+/** `durationMs` deja fijar cuánto dura en pantalla; si no se pasa, usa el default por tipo. */
+export function toast(message: string, kind: 'success' | 'error' = 'success', durationMs?: number): void {
   const node = el('div', { class: `toast toast--${kind}` }, [message]);
   getContainer().append(node);
 
   // Forzar reflow para que la transición de entrada se aplique.
   requestAnimationFrame(() => node.classList.add('toast--visible'));
 
-  const ttl = kind === 'error' ? 5000 : 2600;
+  const ttl = durationMs ?? (kind === 'error' ? 5000 : 2600);
   window.setTimeout(() => {
     node.classList.remove('toast--visible');
     node.addEventListener('transitionend', () => node.remove(), { once: true });

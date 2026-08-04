@@ -207,7 +207,7 @@ export function renderAuthScreen(root: HTMLElement): void {
         if (error) throw error;
         // Si el proyecto exige confirmación por correo, no habrá sesión todavía.
         if (!data.session) {
-          toast('Cuenta creada. Revisa tu correo para confirmarla antes de entrar.', 'success');
+          toast('Cuenta creada. Revisa tu correo para confirmarla antes de entrar.', 'success', 20000);
           mode = 'signin';
           paint();
         }

@@ -1316,6 +1316,23 @@ button {
   border-color: var(--brand);
   box-shadow: 0 0 0 3px rgba(252, 184, 39, 0.16);
 }
+.field__input--code {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.5em;
+  padding-left: 22px;
+}
+.field__hint {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.field__hint:empty {
+  display: none;
+}
 .field__error {
   margin: -8px 0 0;
   font-size: 0.78rem;

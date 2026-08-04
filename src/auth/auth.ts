@@ -7,6 +7,19 @@ export async function signOut(): Promise<void> {
 }
 
 /**
+ * Exige contraseña "fuerte" solo al crear cuenta: letras, números y un
+ * carácter especial. A las cuentas existentes no se les pide retroactivamente,
+ * por eso esta regla no se aplica al iniciar sesión.
+ */
+function passwordStrengthError(value: string): string | null {
+  if (value.length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
+  if (!/[a-zA-Z]/.test(value)) return 'La contraseña debe incluir al menos una letra.';
+  if (!/[0-9]/.test(value)) return 'La contraseña debe incluir al menos un número.';
+  if (!/[^a-zA-Z0-9]/.test(value)) return 'La contraseña debe incluir al menos un carácter especial (ej. !@#$%).';
+  return null;
+}
+
+/**
  * Renderiza la pantalla de autenticación (iniciar sesión / crear cuenta)
  * dentro del contenedor dado. El cambio de sesión lo escucha main.ts,
  * así que aquí solo disparamos las llamadas a Supabase.
@@ -37,6 +50,7 @@ export function renderAuthScreen(root: HTMLElement): void {
     required: true,
     minLength: 6,
   });
+  const passwordHint = el('p', { class: 'field__hint' });
 
   const submit = el('button', { type: 'submit', class: 'btn btn--primary btn--block' });
   const toggle = el('button', { type: 'button', class: 'auth__toggle' });
@@ -50,6 +64,9 @@ export function renderAuthScreen(root: HTMLElement): void {
       switchText.textContent = '¿Aún no tienes cuenta?';
       toggle.textContent = 'Crear una';
       password.setAttribute('autocomplete', 'current-password');
+      password.setAttribute('placeholder', 'Mínimo 6 caracteres');
+      password.setAttribute('minlength', '6');
+      passwordHint.textContent = '';
     } else {
       title.textContent = 'Crea tu cuenta';
       subtitle.textContent = 'Empieza a registrar tus hábitos hoy mismo.';
@@ -57,6 +74,9 @@ export function renderAuthScreen(root: HTMLElement): void {
       switchText.textContent = '¿Ya tienes cuenta?';
       toggle.textContent = 'Inicia sesión';
       password.setAttribute('autocomplete', 'new-password');
+      password.setAttribute('placeholder', 'Mínimo 8 caracteres');
+      password.setAttribute('minlength', '8');
+      passwordHint.textContent = 'Debe incluir letras, números y un carácter especial (ej. !@#$%).';
     }
   }
 
@@ -73,6 +93,7 @@ export function renderAuthScreen(root: HTMLElement): void {
     el('div', { class: 'field' }, [
       el('label', { class: 'field__label', for: 'password' }, ['Contraseña']),
       password,
+      passwordHint,
     ]),
     submit,
   ]);
@@ -85,6 +106,14 @@ export function renderAuthScreen(root: HTMLElement): void {
     if (!emailValue || passwordValue.length < 6) {
       toast('Revisa el correo y que la contraseña tenga al menos 6 caracteres.', 'error');
       return;
+    }
+
+    if (mode === 'signup') {
+      const strengthError = passwordStrengthError(passwordValue);
+      if (strengthError) {
+        toast(strengthError, 'error');
+        return;
+      }
     }
 
     submit.setAttribute('disabled', 'true');

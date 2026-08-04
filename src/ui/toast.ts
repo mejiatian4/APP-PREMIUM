@@ -31,5 +31,10 @@ export function toast(message: string, kind: 'success' | 'error' = 'success'): v
 export function errorMessage(err: unknown, fallback = 'Algo salió mal. Intenta de nuevo.'): string {
   if (err instanceof Error && err.message) return err.message;
   if (typeof err === 'string') return err;
+  // Los errores de Supabase (PostgrestError, incluidas las excepciones de
+  // funciones RPC) son objetos planos con `.message`, no instancias de Error.
+  if (err && typeof err === 'object' && 'message' in err && typeof err.message === 'string' && err.message) {
+    return err.message;
+  }
   return fallback;
 }

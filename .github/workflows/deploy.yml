@@ -41,7 +41,7 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           # Sin BASE_PATH: vite.config.ts usa su default '/', correcto para
-          # servir desde la raíz de habitos.krotonoficial.com.
+          # servir desde la raíz de app-premium.krotonoficial.com.
 
       - name: Subir artefacto de Pages
         uses: actions/upload-pages-artifact@v3

@@ -141,3 +141,86 @@ $$;
 
 revoke all on function public.delete_my_account() from public;
 grant execute on function public.delete_my_account() to authenticated;
+
+-- ----------------------------------------------------------------
+-- Códigos de activación (tirilla de producto físico KROTON)
+-- ----------------------------------------------------------------
+-- Antes de ver el tablero, cada cuenta debe canjear un código de 6 dígitos
+-- (pegado en la tirilla de la prenda). Un código solo se puede canjear una
+-- vez, y una cuenta solo puede tener un código canjeado.
+create table if not exists public.access_codes (
+  code        text primary key,
+  user_id     uuid references auth.users (id) on delete set null,
+  redeemed_at timestamptz
+);
+
+-- Una cuenta no puede tener más de un código canjeado.
+create unique index if not exists access_codes_user_id_unique
+  on public.access_codes (user_id)
+  where user_id is not null;
+
+alter table public.access_codes enable row level security;
+
+-- Cada usuario solo puede ver el código que él mismo canjeó (si tiene uno).
+-- A propósito NO hay política de insert/update/delete para el usuario: el
+-- canje pasa únicamente por redeem_access_code, así la tabla completa de
+-- códigos nunca queda expuesta ni editable directamente desde el cliente
+-- (evita listar o adivinar códigos por prueba y error).
+drop policy if exists "access_codes: ver mi propio código" on public.access_codes;
+create policy "access_codes: ver mi propio código"
+  on public.access_codes
+  for select
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Canjea un código para la cuenta que invoca la función. Falla si el código
+-- no existe, ya fue usado, o si la cuenta ya tiene un código canjeado. El
+-- UPDATE con "where user_id is null" es atómico: si dos personas intentan
+-- canjear el mismo código al mismo tiempo, solo una lo consigue.
+create or replace function public.redeem_access_code(p_code text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_rows int;
+begin
+  if auth.uid() is null then
+    raise exception 'No autenticado.';
+  end if;
+
+  if exists (select 1 from public.access_codes where user_id = auth.uid()) then
+    raise exception 'Esta cuenta ya tiene un código registrado.';
+  end if;
+
+  update public.access_codes
+    set user_id = auth.uid(), redeemed_at = now()
+    where code = p_code and user_id is null;
+
+  get diagnostics v_rows = row_count;
+  if v_rows = 0 then
+    raise exception 'Código inválido o ya utilizado.';
+  end if;
+end;
+$$;
+
+revoke all on function public.redeem_access_code(text) from public;
+grant execute on function public.redeem_access_code(text) to authenticated;
+
+-- Genera los 1000 códigos de 6 dígitos únicos (solo la primera vez que se
+-- corre este archivo: si la tabla ya tiene códigos, no hace nada, así que
+-- es seguro volver a pegar y correr todo el schema.sql las veces que quieras).
+do $$
+begin
+  if (select count(*) from public.access_codes) = 0 then
+    insert into public.access_codes (code)
+    select lpad(n::text, 6, '0')
+    from (
+      select n
+      from generate_series(0, 999999) as n
+      order by random()
+      limit 1000
+    ) sub;
+  end if;
+end $$;

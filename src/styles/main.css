@@ -148,10 +148,7 @@ button {
 .ig-topbar-handle {
   font-size: 12px;
   font-weight: 700;
-  background: var(--grad);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--brand);
   letter-spacing: 0.3px;
   text-decoration: none;
 }
@@ -188,10 +185,7 @@ button {
   font-weight: 400;
   font-size: 1.3rem;
   letter-spacing: 0.03em;
-  background: var(--grad);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--brand);
 }
 
 /* ---------------- App / Topbar ---------------- */
@@ -221,7 +215,11 @@ button {
   transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .topbar.is-hidden {
-  transform: translateY(-100%);
+  /* -100% solo cubre la altura propia del topbar: como además está a
+     top:44px (para dejar sitio a la barra de Instagram), hay que restar
+     también ese desplazamiento o quedan esos 44px inferiores pegados
+     y visibles en la parte de arriba de la pantalla. */
+  transform: translateY(calc(-100% - 44px));
 }
 .topbar .brand {
   position: absolute;
@@ -258,7 +256,7 @@ button {
   white-space: nowrap;
   border: 1px solid rgba(252, 184, 39, 0.35);
   background: var(--brand-soft);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 8px 16px;
   transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.15s;
 }
@@ -347,6 +345,12 @@ button {
   display: flex;
   flex-direction: column;
   gap: 28px;
+}
+
+.divider{
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
 }
 
 /* ---------------- Pestañas ---------------- */
@@ -1495,6 +1499,116 @@ button {
   border-color: var(--danger);
 }
 
+/* ---------------- Carrusel de la tienda ---------------- */
+.shop-carousel {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 48px clamp(16px, 4vw, 40px) 40px;
+  position: relative;
+  z-index: 1;
+}
+.shop-carousel__title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: clamp(1.6rem, 4vw, 2.1rem);
+  letter-spacing: 0.02em;
+  text-align: center;
+  margin: 0 0 22px;
+  color: var(--brand);
+}
+.shop-carousel__wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.shop-carousel__track {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  padding: 4px 2px 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.shop-carousel__item {
+  flex: 0 0 auto;
+  width: clamp(160px, 32vw, 240px);
+  aspect-ratio: 5 / 5;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  scroll-snap-align: start;
+  display: block;
+  background: var(--surface-2);
+  transition: border-color 0.15s, transform 0.15s;
+}
+.shop-carousel__item:hover {
+  border-color: rgba(252, 184, 39, 0.5);
+  transform: translateY(-2px);
+}
+.shop-carousel__item img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+.shop-carousel__nav {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, color 0.15s;
+}
+.shop-carousel__nav:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.shop-carousel__nav svg {
+  width: 18px;
+  height: 18px;
+}
+.shop-carousel__cta {
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: 8px;
+  margin: 26px auto 0;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--brand);
+  text-decoration: none;
+  white-space: nowrap;
+  border: 1px solid rgba(252, 184, 39, 0.35);
+  border-radius: 10px;
+  background: var(--brand-soft);
+  padding: 12px 26px;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.shop-carousel__cta svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.shop-carousel__cta:hover {
+  border-color: var(--brand);
+  background: rgba(252, 184, 39, 0.2);
+  transform: translateY(-1px);
+}
+@media (max-width: 640px) {
+  .shop-carousel__nav {
+    display: none;
+  }
+}
+
 /* ---------------- Footer ---------------- */
 .site-footer {
   position: relative;
@@ -1523,10 +1637,7 @@ button {
   font-weight: 400;
   font-size: 1rem;
   letter-spacing: 0.06em;
-  background: var(--grad);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--brand);
 }
 .footer-sub {
   display: block;

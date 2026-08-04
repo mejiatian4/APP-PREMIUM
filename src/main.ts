@@ -5,10 +5,12 @@ import { renderAuthScreen } from './auth/auth';
 import { renderDashboard } from './habits/dashboard';
 import { qs } from './ui/dom';
 import { initHeaderAutoHide } from './ui/scrollHeader';
+import { initShopCarousel } from './ui/shopCarousel';
 
 const app = qs<HTMLElement>('#app');
 
 initHeaderAutoHide();
+initShopCarousel();
 
 let view: 'auth' | 'dashboard' | null = null;
 let userId: string | null = null;

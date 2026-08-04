@@ -188,7 +188,7 @@ export function renderAuthScreen(root: HTMLElement): void {
   function paint(): void {
     if (mode === 'signin') {
       title.textContent = 'Bienvenido de vuelta';
-      subtitle.textContent = 'Entra para seguir construyendo tus hábitos.';
+      subtitle.textContent = 'Entra para seguir construyéndote.';
       submit.textContent = 'Iniciar sesión';
       switchText.textContent = '¿Aún no tienes cuenta?';
       toggle.textContent = 'Crear una';
@@ -342,7 +342,7 @@ export function renderAuthScreen(root: HTMLElement): void {
         src: `${import.meta.env.BASE_URL}logo-kroton-naranja.png`,
         alt: 'Kroton',
       }),
-      el('span', { class: 'brand__name' }, ['KROTON HABITOS']),
+      el('span', { class: 'brand__name' }, ['KROTON']),
     ]),
     title,
     subtitle,

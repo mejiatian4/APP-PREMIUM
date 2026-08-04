@@ -5,14 +5,15 @@ import { toast, errorMessage } from '../ui/toast';
 
 export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
+  toast('Has cerrado tu sesión.', 'success');
 }
 
 /**
- * Exige contraseña "fuerte" solo al crear cuenta: letras, números y un
- * carácter especial. A las cuentas existentes no se les pide retroactivamente,
- * por eso esta regla no se aplica al iniciar sesión.
+ * Exige contraseña "fuerte" solo al crear cuenta o al restablecerla: letras,
+ * números y un carácter especial. A las cuentas existentes no se les pide
+ * retroactivamente, por eso esta regla no se aplica al iniciar sesión.
  */
-function passwordStrengthError(value: string): string | null {
+export function passwordStrengthError(value: string): string | null {
   if (value.length < 8) return 'La contraseña debe tener al menos 8 caracteres.';
   if (!/[a-zA-Z]/.test(value)) return 'La contraseña debe incluir al menos una letra.';
   if (!/[0-9]/.test(value)) return 'La contraseña debe incluir al menos un número.';
@@ -21,7 +22,7 @@ function passwordStrengthError(value: string): string | null {
 }
 
 /** Campo de contraseña con botón para mostrar/ocultar el texto. */
-function passwordField(attrs: Record<string, string | number | boolean>): {
+export function passwordField(attrs: Record<string, string | number | boolean>): {
   input: HTMLInputElement;
   wrap: HTMLElement;
 } {
@@ -45,15 +46,77 @@ function passwordField(attrs: Record<string, string | number | boolean>): {
   return { input, wrap };
 }
 
+/** Par de campos "nueva contraseña" / "confirmar" con validación de coincidencia en vivo. */
+export function newPasswordFields(idPrefix: string): {
+  passwordField: HTMLElement;
+  confirmField: HTMLElement;
+  password: HTMLInputElement;
+  confirmPassword: HTMLInputElement;
+} {
+  const { input: password, wrap: passwordWrap } = passwordField({
+    id: `${idPrefix}-password`,
+    placeholder: 'Mínimo 8 caracteres',
+    autocomplete: 'new-password',
+    required: true,
+    minLength: 8,
+  });
+  const passwordHint = el('p', { class: 'field__hint' }, [
+    'Debe incluir letras, números y un carácter especial (ej. !@#$%).',
+  ]);
+
+  const { input: confirmPassword, wrap: confirmWrap } = passwordField({
+    id: `${idPrefix}-confirm`,
+    placeholder: 'Repite tu contraseña',
+    autocomplete: 'new-password',
+  });
+  const confirmHint = el('p', { class: 'field__hint' });
+
+  function updateConfirmHint(): void {
+    if (!confirmPassword.value) {
+      confirmHint.textContent = '';
+      confirmHint.classList.remove('field__hint--ok', 'field__hint--error');
+      return;
+    }
+    if (confirmPassword.value === password.value) {
+      confirmHint.textContent = 'Las contraseñas coinciden.';
+      confirmHint.classList.add('field__hint--ok');
+      confirmHint.classList.remove('field__hint--error');
+    } else {
+      confirmHint.textContent = 'Las contraseñas no coinciden.';
+      confirmHint.classList.add('field__hint--error');
+      confirmHint.classList.remove('field__hint--ok');
+    }
+  }
+  password.addEventListener('input', updateConfirmHint);
+  confirmPassword.addEventListener('input', updateConfirmHint);
+
+  return {
+    passwordField: el('div', { class: 'field' }, [
+      el('label', { class: 'field__label', for: `${idPrefix}-password` }, ['Contraseña']),
+      passwordWrap,
+      passwordHint,
+    ]),
+    confirmField: el('div', { class: 'field' }, [
+      el('label', { class: 'field__label', for: `${idPrefix}-confirm` }, ['Confirmar contraseña']),
+      confirmWrap,
+      confirmHint,
+    ]),
+    password,
+    confirmPassword,
+  };
+}
+
+type Mode = 'signin' | 'signup' | 'forgot';
+
 /**
- * Renderiza la pantalla de autenticación (iniciar sesión / crear cuenta)
- * dentro del contenedor dado. El cambio de sesión lo escucha main.ts,
- * así que aquí solo disparamos las llamadas a Supabase.
+ * Renderiza la pantalla de autenticación (iniciar sesión / crear cuenta /
+ * olvidé mi contraseña) dentro del contenedor dado. El cambio de sesión lo
+ * escucha main.ts, así que aquí solo disparamos las llamadas a Supabase.
  */
 export function renderAuthScreen(root: HTMLElement): void {
   clear(root);
 
-  let mode: 'signin' | 'signup' = 'signin';
+  let mode: Mode = 'signin';
 
   const title = el('h1', { class: 'auth__title' });
   const subtitle = el('p', { class: 'auth__subtitle' });
@@ -66,6 +129,10 @@ export function renderAuthScreen(root: HTMLElement): void {
     autocomplete: 'email',
     required: true,
   });
+  const emailField = el('div', { class: 'field' }, [
+    el('label', { class: 'field__label', for: 'email' }, ['Correo']),
+    email,
+  ]);
 
   const { input: password, wrap: passwordWrap } = passwordField({
     id: 'password',
@@ -75,6 +142,13 @@ export function renderAuthScreen(root: HTMLElement): void {
     minLength: 6,
   });
   const passwordHint = el('p', { class: 'field__hint' });
+  const passwordFieldDiv = el('div', { class: 'field' }, [
+    el('label', { class: 'field__label', for: 'password' }, ['Contraseña']),
+    passwordWrap,
+    passwordHint,
+  ]);
+
+  const forgotLink = el('button', { type: 'button', class: 'auth__forgot' }, ['¿Olvidaste tu contraseña?']);
 
   const { input: confirmPassword, wrap: confirmPasswordWrap } = passwordField({
     id: 'confirm-password',
@@ -122,10 +196,12 @@ export function renderAuthScreen(root: HTMLElement): void {
       password.setAttribute('placeholder', 'Mínimo 8 caracteres');
       password.setAttribute('minlength', '6');
       passwordHint.textContent = '';
+      passwordFieldDiv.style.display = '';
+      forgotLink.style.display = '';
       confirmField.style.display = 'none';
       confirmPassword.value = '';
       updateConfirmHint();
-    } else {
+    } else if (mode === 'signup') {
       title.textContent = 'Crea tu cuenta';
       subtitle.textContent = 'Empieza a registrar tus hábitos hoy mismo.';
       submit.textContent = 'Crear cuenta';
@@ -135,25 +211,34 @@ export function renderAuthScreen(root: HTMLElement): void {
       password.setAttribute('placeholder', 'Mínimo 8 caracteres');
       password.setAttribute('minlength', '8');
       passwordHint.textContent = 'Debe incluir letras, números y un carácter especial (ej. !@#$%).';
+      passwordFieldDiv.style.display = '';
+      forgotLink.style.display = 'none';
       confirmField.style.display = '';
+    } else {
+      title.textContent = 'Recupera tu contraseña';
+      subtitle.textContent = 'Ingresa el correo de tu cuenta y te enviaremos un enlace para restablecerla.';
+      submit.textContent = 'Enviar enlace';
+      switchText.textContent = '';
+      toggle.textContent = '← Volver a iniciar sesión';
+      passwordFieldDiv.style.display = 'none';
+      forgotLink.style.display = 'none';
+      confirmField.style.display = 'none';
     }
   }
 
   toggle.addEventListener('click', () => {
-    mode = mode === 'signin' ? 'signup' : 'signin';
+    mode = mode === 'signup' || mode === 'forgot' ? 'signin' : 'signup';
+    paint();
+  });
+  forgotLink.addEventListener('click', () => {
+    mode = 'forgot';
     paint();
   });
 
   const form = el('form', { class: 'auth__form', novalidate: true }, [
-    el('div', { class: 'field' }, [
-      el('label', { class: 'field__label', for: 'email' }, ['Correo']),
-      email,
-    ]),
-    el('div', { class: 'field' }, [
-      el('label', { class: 'field__label', for: 'password' }, ['Contraseña']),
-      passwordWrap,
-      passwordHint,
-    ]),
+    emailField,
+    passwordFieldDiv,
+    forgotLink,
     confirmField,
     submit,
   ]);
@@ -161,6 +246,36 @@ export function renderAuthScreen(root: HTMLElement): void {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const emailValue = email.value.trim();
+
+    if (mode === 'forgot') {
+      if (!emailValue) {
+        toast('Ingresa tu correo.', 'error');
+        return;
+      }
+      submit.setAttribute('disabled', 'true');
+      const original = submit.textContent;
+      submit.textContent = 'Enviando…';
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(emailValue, {
+          redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`,
+        });
+        if (error) throw error;
+        toast(
+          'Si el correo está registrado, te enviamos un enlace para restablecer tu contraseña.',
+          'success',
+          8000,
+        );
+        mode = 'signin';
+        paint();
+      } catch (err) {
+        toast(errorMessage(err, 'No se pudo enviar el enlace.'), 'error');
+      } finally {
+        submit.removeAttribute('disabled');
+        submit.textContent = original;
+      }
+      return;
+    }
+
     const passwordValue = password.value;
 
     if (!emailValue || passwordValue.length < 6) {

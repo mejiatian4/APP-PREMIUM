@@ -1285,6 +1285,19 @@ button {
 .auth__toggle:hover {
   text-decoration: underline;
 }
+.auth__forgot {
+  align-self: flex-end;
+  margin-top: -6px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  padding: 2px 4px;
+}
+.auth__forgot:hover {
+  color: var(--brand);
+  text-decoration: underline;
+}
 
 /* ---------------- Campos ---------------- */
 .field {

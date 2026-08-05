@@ -1,11 +1,12 @@
 import './styles/main.css';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
-import { renderAuthScreen } from './auth/auth';
+import { renderAuthScreen, signOut } from './auth/auth';
 import { renderResetPasswordScreen } from './auth/resetPassword';
 import { renderDashboard } from './habits/dashboard';
 import { renderAccessGate } from './access/gate';
 import { getMyAccessCode } from './access/api';
+import { startInactivityWatch } from './lib/inactivity';
 import { qs } from './ui/dom';
 import { initHeaderAutoHide } from './ui/scrollHeader';
 import { initShopCarousel } from './ui/shopCarousel';
@@ -28,6 +29,8 @@ let userId: string | null = null;
 let recoveryHandled = false;
 
 async function goPastAuth(session: Session): Promise<void> {
+  startInactivityWatch(() => void signOut('Tu sesión se cerró por inactividad.'));
+
   let hasCode: string | null = null;
   try {
     hasCode = await getMyAccessCode();

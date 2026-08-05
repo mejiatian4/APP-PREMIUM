@@ -2,10 +2,12 @@ import { supabase } from '../lib/supabase';
 import { el, clear } from '../ui/dom';
 import { icons } from '../ui/icons';
 import { toast, errorMessage } from '../ui/toast';
+import { stopInactivityWatch } from '../lib/inactivity';
 
-export async function signOut(): Promise<void> {
+export async function signOut(message = 'Has cerrado tu sesión.'): Promise<void> {
+  stopInactivityWatch();
   await supabase.auth.signOut();
-  toast('Has cerrado tu sesión.', 'success');
+  toast(message, 'success');
 }
 
 /**

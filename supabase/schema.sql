@@ -230,6 +230,12 @@ begin
     raise exception 'No autenticado.';
   end if;
 
+  -- Limpieza oportunista: los intentos de más de 5 días ya no influyen en el
+  -- límite de 10 minutos, así que no vale la pena guardarlos para siempre.
+  -- Aprovechamos cada llamada autenticada para borrarlos, en vez de depender
+  -- de un cron externo solo para esto.
+  delete from public.access_code_attempts where attempted_at < now() - interval '5 days';
+
   if exists (select 1 from public.access_codes where user_id = auth.uid()) then
     raise exception 'Esta cuenta ya tiene un código registrado.';
   end if;

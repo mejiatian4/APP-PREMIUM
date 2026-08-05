@@ -192,13 +192,27 @@ alter table public.access_code_attempts enable row level security;
 -- dentro de redeem_access_code (security definer), nunca directo desde el
 -- cliente.
 
--- Canjea un código para la cuenta que invoca la función. Falla si el código
--- no existe, ya fue usado, si la cuenta ya tiene un código canjeado, o si
--- superó el límite de intentos fallidos recientes. El UPDATE con
--- "where user_id is null" es atómico: si dos personas intentan canjear el
--- mismo código al mismo tiempo, solo una lo consigue.
-create or replace function public.redeem_access_code(p_code text)
-returns void
+-- Canjea un código para la cuenta que invoca la función. Devuelve NULL si el
+-- canje fue exitoso, o el mensaje de error como texto si el código es
+-- inválido o ya fue usado. Para "no autenticado", "cuenta ya con código" y
+-- "demasiados intentos" sigue lanzando una excepción normal (raise
+-- exception), porque esos casos no necesitan guardar nada antes de fallar.
+--
+-- El caso de código inválido NO usa raise exception a propósito: esta
+-- función hace un INSERT en access_code_attempts para registrar el intento
+-- fallido, y en Postgres, si después de ese INSERT se lanza una excepción
+-- sin atraparla, se revierte TODA la transacción de la llamada -incluido el
+-- INSERT que se acaba de hacer-. Con raise exception, access_code_attempts
+-- se quedaba vacía sin importar cuántas veces fallara el código, y el límite
+-- de 5 intentos nunca llegaba a dispararse de verdad. Al usar RETURN en vez
+-- de RAISE, la función termina "sin error" y el INSERT sí queda guardado.
+--
+-- El UPDATE con "where user_id is null" es atómico: si dos personas intentan
+-- canjear el mismo código al mismo tiempo, solo una lo consigue.
+drop function if exists public.redeem_access_code(text);
+
+create function public.redeem_access_code(p_code text)
+returns text
 language plpgsql
 security definer
 set search_path = public
@@ -235,8 +249,10 @@ begin
   get diagnostics v_rows = row_count;
   if v_rows = 0 then
     insert into public.access_code_attempts (user_id) values (auth.uid());
-    raise exception 'Código inválido o ya utilizado.';
+    return 'Código inválido o ya utilizado.';
   end if;
+
+  return null;
 end;
 $$;
 

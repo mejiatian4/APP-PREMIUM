@@ -47,9 +47,26 @@ function onVisibilityChange(): void {
  * sesión). Depende de una cookie propia y no de la sesión de Supabase, que
  * se auto-refresca sola en segundo plano y nunca "expiraría" por inactividad
  * si dependiéramos de ella.
+ *
+ * `isRestoredSession` debe ser `true` cuando la sesión ya existía antes de
+ * esta carga de página (p. ej. `INITIAL_SESSION` al reabrir la pestaña) y
+ * `false` cuando es un inicio de sesión recién hecho por la persona. Si es
+ * una sesión restaurada y la cookie ya venció, cerramos la sesión de una vez
+ * en vez de renovarla: de lo contrario, cada recarga "resucitaría" el
+ * contador y la sesión nunca expiraría por más tiempo que pasara con el
+ * navegador cerrado.
+ *
+ * Devuelve `false` cuando la sesión ya estaba vencida (y por lo tanto llamó
+ * a `onTimeout` sin activar la vigilancia); el llamador debe cortar ahí en
+ * vez de seguir mostrando contenido protegido mientras el cierre de sesión
+ * termina en segundo plano.
  */
-export function startInactivityWatch(onTimeout: () => void): void {
-  if (intervalId) return; // ya está vigilando
+export function startInactivityWatch(onTimeout: () => void, isRestoredSession: boolean): boolean {
+  if (intervalId) return true; // ya está vigilando
+  if (isRestoredSession && !hasFreshCookie()) {
+    onTimeout();
+    return false;
+  }
   onTimeoutCb = onTimeout;
   lastWrite = Date.now();
   touchCookie();
@@ -60,6 +77,7 @@ export function startInactivityWatch(onTimeout: () => void): void {
   document.addEventListener('visibilitychange', onVisibilityChange);
 
   intervalId = window.setInterval(checkExpired, CHECK_INTERVAL_MS);
+  return true;
 }
 
 /** Detiene la vigilancia y limpia los listeners; se llama al cerrar sesión por cualquier motivo. */

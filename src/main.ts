@@ -28,8 +28,12 @@ let view: View | null = null;
 let userId: string | null = null;
 let recoveryHandled = false;
 
-async function goPastAuth(session: Session): Promise<void> {
-  startInactivityWatch(() => void signOut('Tu sesión se cerró por inactividad.'));
+async function goPastAuth(session: Session, isRestoredSession: boolean): Promise<void> {
+  const stillActive = startInactivityWatch(
+    () => void signOut('Tu sesión se cerró por inactividad.'),
+    isRestoredSession,
+  );
+  if (!stillActive) return; // sesión vencida por inactividad: el signOut ya quedó disparado.
 
   let hasCode: string | null = null;
   try {
@@ -66,7 +70,7 @@ async function applySession(event: AuthChangeEvent, session: Session | null): Pr
     userId = session.user.id;
     renderResetPasswordScreen(app, () => {
       view = null; // fuerza reevaluar desde cero con la sesión ya actualizada.
-      void goPastAuth(session);
+      void goPastAuth(session, false); // la persona acaba de actuar: no es una sesión restaurada.
     });
     return;
   }
@@ -76,7 +80,11 @@ async function applySession(event: AuthChangeEvent, session: Session | null): Pr
     // así un TOKEN_REFRESHED de fondo no reinicia el tablero ni la puerta de acceso.
     if (userId === session.user.id && view !== 'auth') return;
     userId = session.user.id;
-    await goPastAuth(session);
+    // INITIAL_SESSION / TOKEN_REFRESHED llegan con una sesión que ya existía
+    // antes de esta carga de página (no fue la persona quien acaba de
+    // iniciar sesión ahora mismo), así que las tratamos como "restauradas".
+    const isRestoredSession = event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED';
+    await goPastAuth(session, isRestoredSession);
   } else if (view !== 'auth') {
     view = 'auth';
     userId = null;

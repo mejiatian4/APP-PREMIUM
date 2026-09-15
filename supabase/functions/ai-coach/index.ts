@@ -21,8 +21,10 @@
 
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
-// API compatible con el formato de OpenAI.
-const GROQ_MODEL = 'llama-3.3-70b-versatile';
+// API compatible con el formato de OpenAI. Groq retiró `llama-3.3-70b-versatile`
+// el 16 de agosto de 2026; usamos el reemplazo que ellos mismos recomendaron
+// (ver https://console.groq.com/docs/deprecations).
+const GROQ_MODEL = 'openai/gpt-oss-120b';
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 const SYSTEM_PROMPT =

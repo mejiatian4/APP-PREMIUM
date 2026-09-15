@@ -1602,8 +1602,8 @@ button {
 .shop-carousel__item {
   flex: 0 0 auto;
   width: clamp(160px, 32vw, 240px);
-  aspect-ratio: 5 / 5;
-  padding: 10px;
+  aspect-ratio: 4 / 5;
+  padding: 20px;
   border-radius: var(--radius-sm);
   overflow: hidden;
   border: 1px solid var(--border);
@@ -1619,7 +1619,7 @@ button {
 .shop-carousel__item img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   display: block;
 }
 .shop-carousel__nav {

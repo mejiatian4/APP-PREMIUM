@@ -11,6 +11,31 @@ export async function signOut(message = 'Has cerrado tu sesión.'): Promise<void
 }
 
 /**
+ * Supabase Auth manda sus errores en inglés (`error.message`) y no los
+ * traduce por nosotros. En vez de fiarnos de ese texto (que además puede
+ * cambiar entre versiones del SDK), usamos `error.code` —un identificador
+ * estable— para mostrar el mensaje en español correcto en los casos que
+ * de verdad le pasan a una persona usando el formulario de acceso.
+ */
+const AUTH_ERROR_MESSAGES: Partial<Record<string, string>> = {
+  email_not_confirmed:
+    'Aún no has confirmado tu correo. Revisa tu bandeja de entrada o la carpeta de spam para confirmar la creación de la cuenta.',
+  invalid_credentials: 'Correo o contraseña incorrectos.',
+  user_already_exists: 'Ya existe una cuenta con ese correo.',
+  email_exists: 'Ya existe una cuenta con ese correo.',
+  weak_password: 'La contraseña es muy débil. Usa letras, números y un carácter especial.',
+  over_email_send_rate_limit: 'Se enviaron demasiados correos. Espera unos minutos e intenta de nuevo.',
+  over_request_rate_limit: 'Demasiados intentos. Espera un momento e intenta de nuevo.',
+  user_banned: 'Esta cuenta está bloqueada. Contacta a soporte.',
+};
+
+function authErrorMessage(err: unknown, fallback: string): string {
+  const code = err && typeof err === 'object' && 'code' in err && typeof err.code === 'string' ? err.code : null;
+  if (code && AUTH_ERROR_MESSAGES[code]) return AUTH_ERROR_MESSAGES[code];
+  return errorMessage(err, fallback);
+}
+
+/**
  * Exige contraseña "fuerte" solo al crear cuenta o al restablecerla: letras,
  * números y un carácter especial. A las cuentas existentes no se les pide
  * retroactivamente, por eso esta regla no se aplica al iniciar sesión.
@@ -270,7 +295,7 @@ export function renderAuthScreen(root: HTMLElement): void {
         mode = 'signin';
         paint();
       } catch (err) {
-        toast(errorMessage(err, 'No se pudo enviar el enlace.'), 'error');
+        toast(authErrorMessage(err, 'No se pudo enviar el enlace.'), 'error');
       } finally {
         submit.removeAttribute('disabled');
         submit.textContent = original;
@@ -330,7 +355,7 @@ export function renderAuthScreen(root: HTMLElement): void {
         }
       }
     } catch (err) {
-      toast(errorMessage(err, 'No se pudo completar. Verifica tus datos.'), 'error');
+      toast(authErrorMessage(err, 'No se pudo completar. Verifica tus datos.'), 'error');
     } finally {
       submit.removeAttribute('disabled');
       submit.textContent = original;

@@ -8,6 +8,7 @@ import { renderAccessGate } from './access/gate';
 import { getMyAccessCode } from './access/api';
 import { startInactivityWatch } from './lib/inactivity';
 import { qs } from './ui/dom';
+import { toast } from './ui/toast';
 import { initHeaderAutoHide } from './ui/scrollHeader';
 import { initShopCarousel } from './ui/shopCarousel';
 
@@ -17,16 +18,54 @@ initHeaderAutoHide();
 initShopCarousel();
 
 // El enlace de "recuperar contraseña" trae `type=recovery` en el hash de la
-// URL. Lo capturamos ya mismo (síncrono, antes de que Supabase lo procese y
-// lo limpie) porque en una carga de página nueva —justo lo que pasa al abrir
-// el enlace del correo— Supabase suele emitir INITIAL_SESSION en vez de
-// PASSWORD_RECOVERY, así que no podemos fiarnos solo del nombre del evento.
+// URL, y el de "confirma tu correo" trae `type=signup`. Los capturamos ya
+// mismo (síncrono, antes de que Supabase lo procese y lo limpie) porque en
+// una carga de página nueva —justo lo que pasa al abrir el enlace del
+// correo— Supabase suele emitir INITIAL_SESSION en vez de PASSWORD_RECOVERY
+// o SIGNED_IN, así que no podemos fiarnos solo del nombre del evento.
 const urlIsPasswordRecovery = /type=recovery/.test(window.location.hash);
+const urlIsSignupConfirmation = /type=signup/.test(window.location.hash);
+
+// Al abrir el enlace de "recuperar contraseña", Supabase deja al usuario con
+// una sesión iniciada (así puede llamar a `updateUser` para poner la nueva).
+// Esa sesión se persiste en localStorage igual que cualquier otra: si la
+// persona recarga la pantalla de "nueva contraseña" o la cierra sin
+// terminarla, al volver a entrar la app la restauraría como un login válido
+// SIN que nunca haya puesto la contraseña nueva. Guardamos aquí de quién es
+// la recuperación pendiente para poder rechazar esa sesión huérfana en vez
+// de dejarla pasar. Solo se limpia cuando la persona termina el formulario
+// (`renderResetPasswordScreen` -> onSuccess) o cuando inicia sesión de
+// verdad con su contraseña real (evento SIGNED_IN, no restaurado).
+const PENDING_RECOVERY_KEY = 'kroton_pending_recovery_uid';
+
+function markRecoveryPending(uid: string): void {
+  try {
+    localStorage.setItem(PENDING_RECOVERY_KEY, uid);
+  } catch {
+    // Almacenamiento no disponible (modo privado estricto, etc.): no podemos
+    // proteger este caso, pero tampoco empeora nada respecto a antes.
+  }
+}
+function clearRecoveryPending(): void {
+  try {
+    localStorage.removeItem(PENDING_RECOVERY_KEY);
+  } catch {
+    // noop
+  }
+}
+function isRecoveryPendingFor(uid: string): boolean {
+  try {
+    return localStorage.getItem(PENDING_RECOVERY_KEY) === uid;
+  } catch {
+    return false;
+  }
+}
 
 type View = 'auth' | 'gate' | 'dashboard' | 'reset-password';
 let view: View | null = null;
 let userId: string | null = null;
 let recoveryHandled = false;
+let signupConfirmationHandled = false;
 
 async function goPastAuth(session: Session, isRestoredSession: boolean): Promise<void> {
   const stillActive = startInactivityWatch(
@@ -64,26 +103,64 @@ async function applySession(event: AuthChangeEvent, session: Session | null): Pr
   const isRecovery = !recoveryHandled && !!session && (event === 'PASSWORD_RECOVERY' || urlIsPasswordRecovery);
   if (isRecovery && session) {
     recoveryHandled = true;
+    markRecoveryPending(session.user.id);
     // Limpiamos el hash para que un refresh no vuelva a caer aquí.
     history.replaceState(null, '', window.location.pathname + window.location.search);
     view = 'reset-password';
     userId = session.user.id;
     renderResetPasswordScreen(app, () => {
+      clearRecoveryPending();
       view = null; // fuerza reevaluar desde cero con la sesión ya actualizada.
       void goPastAuth(session, false); // la persona acaba de actuar: no es una sesión restaurada.
     });
     return;
   }
 
+  const isSignupConfirmation = !signupConfirmationHandled && !!session && urlIsSignupConfirmation;
+  if (isSignupConfirmation && session) {
+    signupConfirmationHandled = true;
+    // Limpiamos el hash para que un refresh no vuelva a caer aquí.
+    history.replaceState(null, '', window.location.pathname + window.location.search);
+    // Supabase deja al usuario con sesión iniciada tras confirmar el correo,
+    // pero preferimos que entre a propósito con su contraseña en vez de
+    // dejarlo "colado" directo al tablero sin haber hecho nada.
+    await supabase.auth.signOut();
+    view = 'auth';
+    userId = null;
+    renderAuthScreen(app);
+    toast('Se ha confirmado tu correo. Por favor inicia sesión.', 'success', 6000);
+    return;
+  }
+
   if (session) {
-    // Re-evaluamos solo si cambia el usuario o veníamos de la pantalla de auth;
-    // así un TOKEN_REFRESHED de fondo no reinicia el tablero ni la puerta de acceso.
-    if (userId === session.user.id && view !== 'auth') return;
-    userId = session.user.id;
     // INITIAL_SESSION / TOKEN_REFRESHED llegan con una sesión que ya existía
     // antes de esta carga de página (no fue la persona quien acaba de
     // iniciar sesión ahora mismo), así que las tratamos como "restauradas".
     const isRestoredSession = event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED';
+
+    // Una sesión de recuperación restaurada (nunca se llegó a poner la
+    // contraseña nueva) NO cuenta como login válido: se rechaza y se manda a
+    // la pantalla de acceso normal. Si en cambio la persona sí acaba de
+    // iniciar sesión de verdad (SIGNED_IN), ya demostró su contraseña real,
+    // así que limpiamos cualquier marca vieja y la dejamos entrar.
+    if (isRestoredSession && isRecoveryPendingFor(session.user.id)) {
+      await supabase.auth.signOut();
+      view = 'auth';
+      userId = null;
+      renderAuthScreen(app);
+      toast(
+        'El enlace de recuperación quedó incompleto. Inicia sesión de nuevo o pide uno nuevo si necesitas restablecer tu contraseña.',
+        'error',
+        7000,
+      );
+      return;
+    }
+    if (!isRestoredSession) clearRecoveryPending();
+
+    // Re-evaluamos solo si cambia el usuario o veníamos de la pantalla de auth;
+    // así un TOKEN_REFRESHED de fondo no reinicia el tablero ni la puerta de acceso.
+    if (userId === session.user.id && view !== 'auth') return;
+    userId = session.user.id;
     await goPastAuth(session, isRestoredSession);
   } else if (view !== 'auth') {
     view = 'auth';

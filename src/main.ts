@@ -7,6 +7,7 @@ import { renderDashboard } from './habits/dashboard';
 import { renderAccessGate } from './access/gate';
 import { getMyAccessCode } from './access/api';
 import { startInactivityWatch } from './lib/inactivity';
+import { consumeIntentionalSignIn } from './lib/authIntent';
 import { qs } from './ui/dom';
 import { toast } from './ui/toast';
 import { initHeaderAutoHide } from './ui/scrollHeader';
@@ -133,16 +134,20 @@ async function applySession(event: AuthChangeEvent, session: Session | null): Pr
   }
 
   if (session) {
-    // INITIAL_SESSION / TOKEN_REFRESHED llegan con una sesión que ya existía
-    // antes de esta carga de página (no fue la persona quien acaba de
-    // iniciar sesión ahora mismo), así que las tratamos como "restauradas".
-    const isRestoredSession = event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED';
+    // OJO: el nombre del evento NO alcanza para saber si esta sesión es una
+    // restauración silenciosa o un login real. Restaurar desde
+    // almacenamiento una sesión que sigue siendo válida (no necesita
+    // refrescar el token) también notifica como `SIGNED_IN` —igual que un
+    // login real—, no como `INITIAL_SESSION`/`TOKEN_REFRESHED`. Por eso
+    // usamos nuestra propia marca (ver lib/authIntent.ts), puesta a mano justo
+    // antes de llamar a signInWithPassword/signUp, en vez de confiar en `event`.
+    const isRestoredSession = !consumeIntentionalSignIn();
 
     // Una sesión de recuperación restaurada (nunca se llegó a poner la
     // contraseña nueva) NO cuenta como login válido: se rechaza y se manda a
     // la pantalla de acceso normal. Si en cambio la persona sí acaba de
-    // iniciar sesión de verdad (SIGNED_IN), ya demostró su contraseña real,
-    // así que limpiamos cualquier marca vieja y la dejamos entrar.
+    // iniciar sesión de verdad, ya demostró su contraseña real, así que
+    // limpiamos cualquier marca vieja y la dejamos entrar.
     if (isRestoredSession && isRecoveryPendingFor(session.user.id)) {
       await supabase.auth.signOut();
       view = 'auth';

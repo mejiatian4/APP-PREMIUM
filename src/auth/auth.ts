@@ -3,6 +3,7 @@ import { el, clear } from '../ui/dom';
 import { icons } from '../ui/icons';
 import { toast, errorMessage } from '../ui/toast';
 import { stopInactivityWatch } from '../lib/inactivity';
+import { markIntentionalSignIn, consumeIntentionalSignIn } from '../lib/authIntent';
 
 export async function signOut(message = 'Has cerrado tu sesión.'): Promise<void> {
   stopInactivityWatch();
@@ -327,6 +328,10 @@ export function renderAuthScreen(root: HTMLElement): void {
     submit.textContent = mode === 'signin' ? 'Entrando…' : 'Creando…';
 
     try {
+      // Marcamos la intención justo antes de llamar a Supabase: así main.ts
+      // sabe que la sesión que está a punto de llegar es un login real y no
+      // una restauración silenciosa (ver lib/authIntent.ts para el porqué).
+      markIntentionalSignIn();
       if (mode === 'signin') {
         const { error } = await supabase.auth.signInWithPassword({
           email: emailValue,
@@ -355,6 +360,7 @@ export function renderAuthScreen(root: HTMLElement): void {
         }
       }
     } catch (err) {
+      consumeIntentionalSignIn(); // el login falló: no dejar la marca pegada para el próximo evento de sesión.
       toast(authErrorMessage(err, 'No se pudo completar. Verifica tus datos.'), 'error');
     } finally {
       submit.removeAttribute('disabled');

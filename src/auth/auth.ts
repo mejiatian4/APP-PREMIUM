@@ -234,7 +234,6 @@ export function renderAuthScreen(root: HTMLElement): void {
       passwordFieldDiv.style.display = '';
       forgotLink.style.display = '';
       confirmField.style.display = 'none';
-      turnstileContainer.style.display = 'none';
       confirmPassword.value = '';
       updateConfirmHint();
     } else if (mode === 'signup') {
@@ -250,7 +249,6 @@ export function renderAuthScreen(root: HTMLElement): void {
       passwordFieldDiv.style.display = '';
       forgotLink.style.display = 'none';
       confirmField.style.display = '';
-      turnstileContainer.style.display = '';
     } else {
       title.textContent = 'Recupera tu contraseña';
       subtitle.textContent = 'Ingresa el correo de tu cuenta y te enviaremos un enlace para restablecerla.';
@@ -260,7 +258,6 @@ export function renderAuthScreen(root: HTMLElement): void {
       passwordFieldDiv.style.display = 'none';
       forgotLink.style.display = 'none';
       confirmField.style.display = 'none';
-      turnstileContainer.style.display = 'none';
     }
   }
 
@@ -291,12 +288,17 @@ export function renderAuthScreen(root: HTMLElement): void {
         toast('Ingresa tu correo.', 'error');
         return;
       }
+      if (turnstileWidget && !turnstileWidget.getToken()) {
+        toast('Completa la verificación de seguridad para continuar.', 'error');
+        return;
+      }
       submit.setAttribute('disabled', 'true');
       const original = submit.textContent;
       submit.textContent = 'Enviando…';
       try {
         const { error } = await supabase.auth.resetPasswordForEmail(emailValue, {
           redirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`,
+          captchaToken: turnstileWidget?.getToken() ?? undefined,
         });
         if (error) throw error;
         toast(
@@ -309,6 +311,7 @@ export function renderAuthScreen(root: HTMLElement): void {
       } catch (err) {
         toast(authErrorMessage(err, 'No se pudo enviar el enlace.'), 'error');
       } finally {
+        turnstileWidget?.reset(); // el token es de un solo uso.
         submit.removeAttribute('disabled');
         submit.textContent = original;
       }
@@ -332,10 +335,13 @@ export function renderAuthScreen(root: HTMLElement): void {
         toast('Las contraseñas no coinciden.', 'error');
         return;
       }
-      if (turnstileWidget && !turnstileWidget.getToken()) {
-        toast('Completa la verificación de seguridad para continuar.', 'error');
-        return;
-      }
+    }
+    // Supabase exige el CAPTCHA en los tres flujos (entrar, crear cuenta,
+    // recuperar) cuando "Enable Captcha protection" está activo en el
+    // panel — no es algo que se pueda limitar solo al registro desde ahí.
+    if (turnstileWidget && !turnstileWidget.getToken()) {
+      toast('Completa la verificación de seguridad para continuar.', 'error');
+      return;
     }
 
     submit.setAttribute('disabled', 'true');
@@ -351,6 +357,7 @@ export function renderAuthScreen(root: HTMLElement): void {
         const { error } = await supabase.auth.signInWithPassword({
           email: emailValue,
           password: passwordValue,
+          options: { captchaToken: turnstileWidget?.getToken() ?? undefined },
         });
         if (error) throw error;
         // El cambio de sesión lo captura main.ts y pinta el tablero.
@@ -381,7 +388,7 @@ export function renderAuthScreen(root: HTMLElement): void {
     } finally {
       // El token de Turnstile es de un solo uso: pedimos uno nuevo para el
       // próximo intento, sea que este haya fallado o terminado bien.
-      if (mode === 'signup') turnstileWidget?.reset();
+      turnstileWidget?.reset();
       submit.removeAttribute('disabled');
       submit.textContent = original;
     }

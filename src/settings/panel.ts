@@ -1,8 +1,7 @@
 import { el } from '../ui/dom';
 import { icons } from '../ui/icons';
 import { toast, errorMessage } from '../ui/toast';
-import { listGoals } from '../goals/api';
-import { downloadGoalsPdf } from '../goals/pdf';
+import { downloadFullReportPdf } from './exportPdf';
 import { deleteAccount } from './api';
 import { signOut } from '../auth/auth';
 import { dismiss, mountOverlay } from '../ui/modal';
@@ -17,7 +16,7 @@ function openOverlay(card: HTMLElement): HTMLElement {
 export function openSettingsPanel(userEmail: string): void {
   const downloadBtn = el('button', { class: 'btn btn--soft btn--block', type: 'button' }, [
     icons.download(),
-    el('span', {}, ['Descargar mis metas (PDF)']),
+    el('span', {}, ['Descargar mi reporte (PDF)']),
   ]);
   downloadBtn.addEventListener('click', () => void onDownload());
 
@@ -38,7 +37,7 @@ export function openSettingsPanel(userEmail: string): void {
     el('div', { class: 'settings-section' }, [
       el('h3', { class: 'settings-section__title' }, ['Exportar datos']),
       el('p', { class: 'settings-section__text' }, [
-        'Descarga un documento con todas las metas que te has propuesto, agrupadas por plazo, con su estado y fechas.',
+        'Descarga un documento con tu agenda, tus hábitos (con su % de cumplimiento) y tus metas de corto, mediano y largo plazo.',
       ]),
       downloadBtn,
     ]),
@@ -60,8 +59,7 @@ export function openSettingsPanel(userEmail: string): void {
     const originalText = label?.textContent ?? '';
     if (label) label.textContent = 'Generando…';
     try {
-      const goals = await listGoals();
-      await downloadGoalsPdf(goals, userEmail);
+      await downloadFullReportPdf(userEmail);
       toast('PDF descargado.', 'success');
     } catch (err) {
       toast(errorMessage(err, 'No se pudo generar el PDF.'), 'error');

@@ -2,7 +2,7 @@ import { el, clear } from './dom';
 import { DAY_LABELS, capitalize, mondayFirstDay } from '../lib/dates';
 import { icons } from './icons';
 
-export interface DatePicker {
+interface DatePicker {
   element: HTMLElement;
   getValue(): string | null;
   /** Cambia la fecha mínima seleccionable; si la selección actual queda antes, se limpia. */

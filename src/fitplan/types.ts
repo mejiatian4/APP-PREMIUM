@@ -1,10 +1,10 @@
-export type Sexo = 'masculino' | 'femenino';
-export type Somatotipo = 'ectomorfo' | 'mesomorfo' | 'endomorfo';
-export type Objetivo = 'perder_grasa' | 'ganar_musculo' | 'definicion' | 'salud_general' | 'resistencia' | 'fuerza';
-export type Nivel = 'principiante' | 'intermedio' | 'avanzado';
-export type Equipo = 'gym_completo' | 'mancuernas' | 'cuerpo';
-export type HeightUnit = 'cm' | 'ft';
-export type WeightUnit = 'kg' | 'lb';
+type Sexo = 'masculino' | 'femenino';
+type Somatotipo = 'ectomorfo' | 'mesomorfo' | 'endomorfo';
+type Objetivo = 'perder_grasa' | 'ganar_musculo' | 'definicion' | 'salud_general' | 'resistencia' | 'fuerza';
+type Nivel = 'principiante' | 'intermedio' | 'avanzado';
+type Equipo = 'gym_completo' | 'mancuernas' | 'cuerpo';
+type HeightUnit = 'cm' | 'ft';
+type WeightUnit = 'kg' | 'lb';
 export type ImcClass = 'bajo' | 'normal' | 'sobrepeso' | 'obesidad1' | 'obesidad2';
 
 export interface FitPlanState {

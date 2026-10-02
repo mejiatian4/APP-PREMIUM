@@ -75,6 +75,24 @@ export function passwordField(attrs: Record<string, string | number | boolean>):
   return { input, wrap };
 }
 
+/** Compara contraseña/confirmación y pinta el hint de coincidencia. `active=false` lo deja en blanco (p. ej. fuera del modo registro). */
+function paintConfirmHint(hint: HTMLElement, passwordValue: string, confirmValue: string, active = true): void {
+  if (!active || !confirmValue) {
+    hint.textContent = '';
+    hint.classList.remove('field__hint--ok', 'field__hint--error');
+    return;
+  }
+  if (confirmValue === passwordValue) {
+    hint.textContent = 'Las contraseñas coinciden.';
+    hint.classList.add('field__hint--ok');
+    hint.classList.remove('field__hint--error');
+  } else {
+    hint.textContent = 'Las contraseñas no coinciden.';
+    hint.classList.add('field__hint--error');
+    hint.classList.remove('field__hint--ok');
+  }
+}
+
 /** Par de campos "nueva contraseña" / "confirmar" con validación de coincidencia en vivo. */
 export function newPasswordFields(idPrefix: string): {
   passwordField: HTMLElement;
@@ -101,20 +119,7 @@ export function newPasswordFields(idPrefix: string): {
   const confirmHint = el('p', { class: 'field__hint' });
 
   function updateConfirmHint(): void {
-    if (!confirmPassword.value) {
-      confirmHint.textContent = '';
-      confirmHint.classList.remove('field__hint--ok', 'field__hint--error');
-      return;
-    }
-    if (confirmPassword.value === password.value) {
-      confirmHint.textContent = 'Las contraseñas coinciden.';
-      confirmHint.classList.add('field__hint--ok');
-      confirmHint.classList.remove('field__hint--error');
-    } else {
-      confirmHint.textContent = 'Las contraseñas no coinciden.';
-      confirmHint.classList.add('field__hint--error');
-      confirmHint.classList.remove('field__hint--ok');
-    }
+    paintConfirmHint(confirmHint, password.value, confirmPassword.value);
   }
   password.addEventListener('input', updateConfirmHint);
   confirmPassword.addEventListener('input', updateConfirmHint);
@@ -198,20 +203,7 @@ export function renderAuthScreen(root: HTMLElement): void {
   const turnstileContainer = el('div', { class: 'field turnstile-field' });
 
   function updateConfirmHint(): void {
-    if (mode !== 'signup' || !confirmPassword.value) {
-      confirmHint.textContent = '';
-      confirmHint.classList.remove('field__hint--ok', 'field__hint--error');
-      return;
-    }
-    if (confirmPassword.value === password.value) {
-      confirmHint.textContent = 'Las contraseñas coinciden.';
-      confirmHint.classList.add('field__hint--ok');
-      confirmHint.classList.remove('field__hint--error');
-    } else {
-      confirmHint.textContent = 'Las contraseñas no coinciden.';
-      confirmHint.classList.add('field__hint--error');
-      confirmHint.classList.remove('field__hint--ok');
-    }
+    paintConfirmHint(confirmHint, password.value, confirmPassword.value, mode === 'signup');
   }
   password.addEventListener('input', updateConfirmHint);
   confirmPassword.addEventListener('input', updateConfirmHint);

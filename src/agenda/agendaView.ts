@@ -8,6 +8,7 @@ import {
   capitalize,
   isSameDay,
   formatWeekRange,
+  formatTime12h,
 } from '../lib/dates';
 import {
   listAgendaItems,
@@ -19,19 +20,14 @@ import {
 } from './api';
 import { occurrencesForDate, describeRecurrence } from './occurrences';
 import { el, clear } from '../ui/dom';
-import { icons } from '../ui/icons';
 import { toast, errorMessage } from '../ui/toast';
 import { openAgendaItemForm, confirmDialog } from '../ui/modal';
+import { createWeekNav } from '../ui/weekNav';
+import { createCheckToggle, createEditDeleteButtons } from '../ui/rowActions';
 
 type ViewMode = 'day' | 'week';
 
 const key = (agendaItemId: string, dateISO: string) => `${agendaItemId}|${dateISO}`;
-
-/** 'HH:MM:SS' o 'HH:MM' -> "3:00 p.m.". */
-function formatTime(value: string): string {
-  const [h, m] = value.slice(0, 5).split(':').map(Number);
-  return new Date(2000, 0, 1, h, m).toLocaleTimeString('es', { hour: 'numeric', minute: '2-digit' });
-}
 
 /** "Hoy · lun 21 sep" si es hoy, o "lun 21 sep" para cualquier otro día. */
 function formatDayLabel(date: Date): string {
@@ -66,14 +62,23 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
   let viewMode: ViewMode = 'day';
 
   // ---- Tarjeta: el período (día o semana) ----
-  const dayLabel = el('span', { class: 'weeknav__range' }, ['—']);
-  const prevBtn = el('button', { class: 'btn btn--icon' }, [icons.chevronLeft()]);
-  const nextBtn = el('button', { class: 'btn btn--icon' }, [icons.chevronRight()]);
-  const todayBtn = el('button', { class: 'btn btn--soft' }, ['Hoy']);
-  const addBtn = el('button', { class: 'btn btn--primary btn--icon-text' }, [
-    icons.plus(),
-    el('span', {}, ['Agendar']),
-  ]);
+  const nav = createWeekNav({
+    addLabel: 'Agendar',
+    onPrev: () => {
+      currentDate = viewMode === 'day' ? addDays(currentDate, -1) : addWeeks(currentDate, -1);
+      void load();
+    },
+    onNext: () => {
+      currentDate = viewMode === 'day' ? addDays(currentDate, 1) : addWeeks(currentDate, 1);
+      void load();
+    },
+    onToday: () => {
+      currentDate = new Date();
+      void load();
+    },
+    onAdd: () => void onAdd(),
+  });
+  const { element: dayNav, rangeLabel: dayLabel, prevBtn, nextBtn } = nav;
 
   const dayModeBtn = el('button', { class: 'term-btn', type: 'button' }, ['Día']);
   const weekModeBtn = el('button', { class: 'term-btn', type: 'button' }, ['Semana']);
@@ -100,25 +105,6 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
     updateModeToggle();
     void load();
   });
-
-  prevBtn.addEventListener('click', () => {
-    currentDate = viewMode === 'day' ? addDays(currentDate, -1) : addWeeks(currentDate, -1);
-    void load();
-  });
-  nextBtn.addEventListener('click', () => {
-    currentDate = viewMode === 'day' ? addDays(currentDate, 1) : addWeeks(currentDate, 1);
-    void load();
-  });
-  todayBtn.addEventListener('click', () => {
-    currentDate = new Date();
-    void load();
-  });
-  addBtn.addEventListener('click', () => void onAdd());
-
-  const dayNav = el('div', { class: 'weeknav' }, [
-    el('div', { class: 'weeknav__left' }, [prevBtn, dayLabel, nextBtn, todayBtn]),
-    addBtn,
-  ]);
 
   const dayList = el('div', { class: 'goal-list' });
   const dayCard = el('section', { class: 'card card--agenda' }, [
@@ -217,20 +203,15 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
 
   function renderDayRow(item: AgendaItem, dateISO: string): HTMLElement {
     const done = completion.get(key(item.id, dateISO)) ?? false;
-    const toggleBtn = el(
-      'button',
-      {
-        class: 'goal-check' + (done ? ' goal-check--on' : ''),
-        type: 'button',
-        'aria-label': done ? 'Marcar como pendiente' : 'Marcar como hecho',
-      },
-      [icons.check()],
+    const toggleBtn = createCheckToggle(
+      done,
+      done ? 'Marcar como pendiente' : 'Marcar como hecho',
+      () => void onToggle(item, dateISO),
     );
-    toggleBtn.addEventListener('click', () => void onToggle(item, dateISO));
 
     const bodyChildren: (Node | string)[] = [
       el('div', { class: 'agenda-item__head' }, [
-        el('span', { class: 'agenda-item__time' }, [formatTime(item.time_of_day)]),
+        el('span', { class: 'agenda-item__time' }, [formatTime12h(item.time_of_day)]),
         el('span', { class: 'agenda-item__title' }, [item.title]),
       ]),
     ];
@@ -256,25 +237,17 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
     const dot = el('span', { class: 'agenda-item__dot' });
     dot.style.setProperty('--dot', item.color);
 
-    const editBtn = el(
-      'button',
-      { class: 'iconbtn', type: 'button', 'aria-label': `Editar ${item.title}` },
-      [icons.pencil()],
+    const { editBtn, delBtn } = createEditDeleteButtons(
+      item.title,
+      () => void onEdit(item),
+      () => void onDelete(item),
     );
-    editBtn.addEventListener('click', () => void onEdit(item));
-
-    const delBtn = el(
-      'button',
-      { class: 'iconbtn iconbtn--danger', type: 'button', 'aria-label': `Eliminar ${item.title}` },
-      [icons.trash()],
-    );
-    delBtn.addEventListener('click', () => void onDelete(item));
 
     return el('div', { class: 'agenda-item agenda-item--manage' }, [
       dot,
       el('div', { class: 'agenda-item__body' }, [
         el('div', { class: 'agenda-item__head' }, [
-          el('span', { class: 'agenda-item__time' }, [formatTime(item.time_of_day)]),
+          el('span', { class: 'agenda-item__time' }, [formatTime12h(item.time_of_day)]),
           el('span', { class: 'agenda-item__title' }, [item.title]),
         ]),
         el('span', { class: 'agenda-item__recurrence' }, [describeRecurrence(item)]),

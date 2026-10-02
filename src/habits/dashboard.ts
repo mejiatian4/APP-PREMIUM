@@ -4,7 +4,6 @@ import {
   weekDays,
   addWeeks,
   addDays,
-  daysBetween,
   toISODate,
   isSameDay,
   formatWeekRange,
@@ -19,12 +18,15 @@ import {
   getLogsForRange,
   setCompletion,
 } from './api';
+import { computeHabitCompletionPct } from './stats';
 import { DailyChart } from '../charts/daily';
 import { WeeklyChart } from '../charts/weekly';
 import { el, clear } from '../ui/dom';
 import { icons } from '../ui/icons';
 import { toast, errorMessage } from '../ui/toast';
 import { openHabitForm, confirmDialog } from '../ui/modal';
+import { createWeekNav } from '../ui/weekNav';
+import { createEditDeleteButtons } from '../ui/rowActions';
 import { signOut } from '../auth/auth';
 import { renderGoalsBoard } from '../goals/board';
 import { renderAgendaView } from '../agenda/agendaView';
@@ -63,18 +65,11 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   ]);
   logoutBtn.addEventListener('click', () => void signOut());
 
-  const shopLink = el(
-    'a',
-    { class: 'topbar__shop', href: 'https://krotonoficial.com/', target: '_blank', rel: 'noopener' },
-    [icons.shop(), el('span', {}, ['Ir a la tienda'])],
-  );
-
   const topbar = el('header', { class: 'topbar' }, [
-    shopLink,
+    settingsBtn,
     brand,
     el('div', { class: 'topbar__user' }, [
       el('span', { class: 'topbar__email', title: userEmail }, [userEmail]),
-      settingsBtn,
       logoutBtn,
     ]),
   ]);
@@ -251,40 +246,28 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   const statsGrid = el('div', { class: 'stats-grid' }, [consistencyCard, habitStatsCard]);
 
   // Sección de la semana: navegación + tabla
-  const rangeLabel = el('span', { class: 'weeknav__range' }, ['—']);
-  const prevBtn = el('button', { class: 'btn btn--icon', 'aria-label': 'Semana anterior' }, [
-    icons.chevronLeft(),
-  ]);
-  const nextBtn = el('button', { class: 'btn btn--icon', 'aria-label': 'Semana siguiente' }, [
-    icons.chevronRight(),
-  ]);
-  const todayBtn = el('button', { class: 'btn btn--soft' }, ['Hoy']);
-  const addBtn = el('button', { class: 'btn btn--primary btn--icon-text' }, [
-    icons.plus(),
-    el('span', {}, ['Hábito']),
-  ]);
-
-  prevBtn.addEventListener('click', () => {
-    currentMonday = addWeeks(currentMonday, -1);
-    void loadWeek();
+  const weekNav = createWeekNav({
+    addLabel: 'Hábito',
+    prevLabel: 'Semana anterior',
+    nextLabel: 'Semana siguiente',
+    onPrev: () => {
+      currentMonday = addWeeks(currentMonday, -1);
+      void loadWeek();
+    },
+    onNext: () => {
+      currentMonday = addWeeks(currentMonday, 1);
+      void loadWeek();
+    },
+    onToday: () => {
+      currentMonday = startOfWeek(new Date());
+      void loadWeek();
+    },
+    onAdd: () => void onAddHabit(),
   });
-  nextBtn.addEventListener('click', () => {
-    currentMonday = addWeeks(currentMonday, 1);
-    void loadWeek();
-  });
-  todayBtn.addEventListener('click', () => {
-    currentMonday = startOfWeek(new Date());
-    void loadWeek();
-  });
-  addBtn.addEventListener('click', () => void onAddHabit());
-
-  const weeknav = el('div', { class: 'weeknav' }, [
-    el('div', { class: 'weeknav__left' }, [prevBtn, rangeLabel, nextBtn, todayBtn]),
-    addBtn,
-  ]);
+  const rangeLabel = weekNav.rangeLabel;
 
   const tableWrap = el('div', { class: 'table-wrap' });
-  const weekSection = el('section', { class: 'week' }, [weeknav, tableWrap]);
+  const weekSection = el('section', { class: 'week' }, [weekNav.element, tableWrap]);
 
   // ---- Pestañas: Agenda / Hábitos / Metas / Coach ----
   // Las cuatro arrancan ocultas/sin cargar por igual; showView('agenda') más
@@ -478,14 +461,11 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
       );
 
       // Acciones (editar / eliminar)
-      const editBtn = el('button', { class: 'iconbtn', 'aria-label': `Editar ${habit.name}`, type: 'button' }, [
-        icons.pencil(),
-      ]);
-      const delBtn = el('button', { class: 'iconbtn iconbtn--danger', 'aria-label': `Eliminar ${habit.name}`, type: 'button' }, [
-        icons.trash(),
-      ]);
-      editBtn.addEventListener('click', () => void onEditHabit(habit));
-      delBtn.addEventListener('click', () => void onDeleteHabit(habit));
+      const { editBtn, delBtn } = createEditDeleteButtons(
+        habit.name,
+        () => void onEditHabit(habit),
+        () => void onDeleteHabit(habit),
+      );
       cells.push(el('td', { class: 'ht__actions' }, [el('div', { class: 'ht__actions-inner' }, [editBtn, delBtn])]));
 
       return el('tr', {}, cells);
@@ -587,17 +567,12 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
 
       const activeDays = new Set<string>();
       const doneCountByDay = new Map<string, number>();
-      const perHabitDone = new Map<string, number>();
       const monthStartISO = toISODate(new Date(today.getFullYear(), today.getMonth(), 1));
-      const last30StartISO = toISODate(addDays(today, -29));
 
       for (const log of logs) {
         if (!log.completed) continue;
         activeDays.add(log.log_date);
         doneCountByDay.set(log.log_date, (doneCountByDay.get(log.log_date) ?? 0) + 1);
-        if (log.log_date >= last30StartISO) {
-          perHabitDone.set(log.habit_id, (perHabitDone.get(log.habit_id) ?? 0) + 1);
-        }
       }
 
       // Racha actual: días consecutivos (hasta hoy) con al menos un hábito completado.
@@ -631,7 +606,7 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
       monthPctValue.textContent = `${Math.round((monthActiveDays / daysElapsedInMonth) * 100)}%`;
 
       renderHeatmap(doneCountByDay, today);
-      renderHabitStats(perHabitDone, today, last30StartISO);
+      renderHabitStats(computeHabitCompletionPct(habits, logs, today));
     } catch {
       // Las estadísticas extendidas son secundarias: si fallan, no interrumpimos la experiencia.
     }
@@ -670,19 +645,14 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   }
 
   /** Pinta el % de cumplimiento de cada hábito en los últimos 30 días. */
-  function renderHabitStats(perHabitDone: Map<string, number>, today: Date, last30StartISO: string): void {
+  function renderHabitStats(pctByHabit: Map<string, number>): void {
     clear(habitStatsList);
     if (habits.length === 0) {
       habitStatsList.append(el('p', { class: 'state__text' }, ['Agrega hábitos para ver tus estadísticas.']));
       return;
     }
-    const todayISO = toISODate(today);
     for (const habit of habits) {
-      const createdISO = toISODate(new Date(habit.created_at));
-      const effectiveStartISO = createdISO > last30StartISO ? createdISO : last30StartISO;
-      const daysConsidered = Math.max(1, daysBetween(effectiveStartISO, todayISO) + 1);
-      const done = perHabitDone.get(habit.id) ?? 0;
-      const pct = Math.min(100, Math.round((done / daysConsidered) * 100));
+      const pct = pctByHabit.get(habit.id) ?? 0;
 
       const dot = el('span', { class: 'habit-stat__dot', 'aria-hidden': 'true' });
       dot.style.setProperty('--dot', habit.color);

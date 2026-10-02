@@ -6,7 +6,7 @@ import { mondayFirstDay, DAY_NAMES } from '../lib/dates';
  * Convertimos la fecha a un Date local (nunca `new Date(stringISO)` directo,
  * que se interpreta en UTC y puede correr el día según la zona horaria).
  */
-export function occursOn(item: AgendaItem, dateISO: string): boolean {
+function occursOn(item: AgendaItem, dateISO: string): boolean {
   if (dateISO < item.start_date) return false;
   if (item.end_date && dateISO > item.end_date) return false;
 

@@ -2,17 +2,12 @@ import type { Goal, GoalTerm } from '../lib/types';
 import { toISODate, formatShortDate } from '../lib/dates';
 import { listGoals, createGoal, updateGoal, deleteGoal } from './api';
 import { renderGantt } from './gantt';
+import { TERMS, TERM_LABELS } from './constants';
 import { el, clear } from '../ui/dom';
 import { icons } from '../ui/icons';
 import { toast, errorMessage } from '../ui/toast';
 import { openGoalForm, confirmDialog } from '../ui/modal';
-
-const TERMS: GoalTerm[] = ['short', 'medium', 'long'];
-const TERM_LABELS: Record<GoalTerm, string> = {
-  short: 'Corto plazo',
-  medium: 'Mediano plazo',
-  long: 'Largo plazo',
-};
+import { createCheckToggle, createEditDeleteButtons } from '../ui/rowActions';
 
 /** Rango legible para la tarjeta: "1 jul – 15 ago 2026", o solo el extremo si falta uno. */
 function formatGoalRange(startISO: string | null, endISO: string | null): string {
@@ -95,30 +90,17 @@ export async function renderGoalsBoard(root: HTMLElement, userId: string): Promi
   }
 
   function renderGoalCard(goal: Goal): HTMLElement {
-    const toggleBtn = el(
-      'button',
-      {
-        class: 'goal-check' + (goal.completed ? ' goal-check--on' : ''),
-        type: 'button',
-        'aria-label': goal.completed ? 'Marcar como pendiente' : 'Marcar como cumplida',
-      },
-      [icons.check()],
+    const toggleBtn = createCheckToggle(
+      goal.completed,
+      goal.completed ? 'Marcar como pendiente' : 'Marcar como cumplida',
+      () => void onToggleGoal(goal),
     );
-    toggleBtn.addEventListener('click', () => void onToggleGoal(goal));
 
-    const editBtn = el(
-      'button',
-      { class: 'iconbtn', type: 'button', 'aria-label': `Editar ${goal.title}` },
-      [icons.pencil()],
+    const { editBtn, delBtn } = createEditDeleteButtons(
+      goal.title,
+      () => void onEditGoal(goal),
+      () => void onDeleteGoal(goal),
     );
-    editBtn.addEventListener('click', () => void onEditGoal(goal));
-
-    const delBtn = el(
-      'button',
-      { class: 'iconbtn iconbtn--danger', type: 'button', 'aria-label': `Eliminar ${goal.title}` },
-      [icons.trash()],
-    );
-    delBtn.addEventListener('click', () => void onDeleteGoal(goal));
 
     const bodyChildren: (Node | string)[] = [el('span', { class: 'goal-card__title' }, [goal.title])];
     if (goal.description) {

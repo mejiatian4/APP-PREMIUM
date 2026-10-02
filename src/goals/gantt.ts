@@ -1,14 +1,8 @@
-import type { Goal, GoalTerm } from '../lib/types';
+import type { Goal } from '../lib/types';
 import { toISODate, formatShortDate, capitalize } from '../lib/dates';
 import { el, clear } from '../ui/dom';
 import { icons } from '../ui/icons';
-
-const TERMS: GoalTerm[] = ['short', 'medium', 'long'];
-const TERM_LABELS: Record<GoalTerm, string> = {
-  short: 'Corto plazo',
-  medium: 'Mediano plazo',
-  long: 'Largo plazo',
-};
+import { TERMS, TERM_LABELS } from './constants';
 
 // Ancho de cada columna de mes: se calcula según el espacio real disponible
 // (ver más abajo), entre estos dos límites — compacto en pantallas angostas,

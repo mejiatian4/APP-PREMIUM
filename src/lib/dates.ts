@@ -88,6 +88,12 @@ export function formatShortDate(iso: string): string {
     .replace('.', '');
 }
 
+/** 'HH:MM:SS' o 'HH:MM' -> "3:00 p.m.". */
+export function formatTime12h(value: string): string {
+  const [h, m] = value.slice(0, 5).split(':').map(Number);
+  return new Date(2000, 0, 1, h, m).toLocaleTimeString('es', { hour: 'numeric', minute: '2-digit' });
+}
+
 /** Rango legible de la semana, p. ej. "23 – 29 jun 2026". */
 export function formatWeekRange(monday: Date): string {
   const days = weekDays(monday);

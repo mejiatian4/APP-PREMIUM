@@ -4,7 +4,7 @@ import { toISODate, DAY_LABELS, DAY_NAMES } from '../lib/dates';
 import { createDatePicker } from './calendar';
 
 /** Paleta de colores disponibles para los hábitos. */
-export const HABIT_COLORS = [
+const HABIT_COLORS = [
   '#5b5bd6', // índigo (marca)
   '#0ea5e9', // cielo
   '#10b981', // esmeralda

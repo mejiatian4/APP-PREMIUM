@@ -105,15 +105,6 @@ button {
   border-radius: 6px;
 }
 
-@media (max-width: 480px) {
-  .topbar__shop span {
-    display: none;
-  }
-  .topbar__shop {
-    padding: 8px;
-  }
-}
-
 /* ---------------- Marca ---------------- */
 .brand {
   display: flex;
@@ -186,33 +177,6 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.topbar__shop {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-body);
-  font-weight: 600;
-  font-size: 0.82rem;
-  color: var(--brand);
-  text-decoration: none;
-  white-space: nowrap;
-  border: 1px solid rgba(252, 184, 39, 0.35);
-  background: var(--brand-soft);
-  border-radius: 10px;
-  padding: 8px 16px;
-  transition: border-color 0.15s, color 0.15s, background 0.15s, transform 0.15s;
-}
-.topbar__shop svg {
-  width: 16px;
-  height: 16px;
-  flex: none;
-}
-.topbar__shop:hover {
-  border-color: var(--brand);
-  background: rgba(252, 184, 39, 0.2);
-  transform: translateY(-1px);
-}
-
 /* ---------------- Subheader: secciones de la app ---------------- */
 .app-nav {
   display: flex;
@@ -1749,6 +1713,11 @@ button {
   flex-direction: column;
   gap: 10px;
   min-height: 8px;
+}
+/* Separa la lista de la línea inferior del weeknav (Agenda): sin esto el
+   primer ítem queda pegado justo contra esa línea. */
+.weeknav + .goal-list {
+  margin-top: 16px;
 }
 .goal-empty {
   margin: 0;

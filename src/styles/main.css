@@ -1770,6 +1770,11 @@ button {
   color: var(--text-muted);
   font-size: 0.85rem;
 }
+.goal-empty--sm {
+  padding: 2px 4px 4px;
+  text-align: left;
+  font-size: 0.78rem;
+}
 .goal-card {
   display: flex;
   align-items: flex-start;
@@ -1968,6 +1973,35 @@ button {
 }
 .agenda-item--manage {
   align-items: center;
+}
+
+/* Vista semanal: Día | Semana + un grupo por día con su propio encabezado */
+.agenda-mode-toggle {
+  width: auto;
+  flex: none;
+}
+.agenda-mode-toggle .term-btn {
+  flex: none;
+  padding: 7px 14px;
+  font-size: 0.8rem;
+}
+.agenda-week-day {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.agenda-week-day + .agenda-week-day {
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.agenda-week-day__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
 }
 
 .field__input--area {

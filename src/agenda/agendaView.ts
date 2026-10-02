@@ -1,5 +1,14 @@
 import type { AgendaItem, CompletionMap } from '../lib/types';
-import { toISODate, addDays, capitalize, isSameDay } from '../lib/dates';
+import {
+  toISODate,
+  addDays,
+  addWeeks,
+  startOfWeek,
+  weekDays,
+  capitalize,
+  isSameDay,
+  formatWeekRange,
+} from '../lib/dates';
 import {
   listAgendaItems,
   createAgendaItem,
@@ -13,6 +22,8 @@ import { el, clear } from '../ui/dom';
 import { icons } from '../ui/icons';
 import { toast, errorMessage } from '../ui/toast';
 import { openAgendaItemForm, confirmDialog } from '../ui/modal';
+
+type ViewMode = 'day' | 'week';
 
 const key = (agendaItemId: string, dateISO: string) => `${agendaItemId}|${dateISO}`;
 
@@ -30,13 +41,21 @@ function formatDayLabel(date: Date): string {
   return isSameDay(date, new Date()) ? `Hoy · ${label}` : label;
 }
 
+/** "Lunes 6 oct · Hoy" para el encabezado de cada día dentro de la vista semanal. */
+function formatWeekDayHeader(date: Date): string {
+  const label = capitalize(
+    date.toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'short' }).replace('.', ''),
+  );
+  return isSameDay(date, new Date()) ? `${label} · Hoy` : label;
+}
+
 /**
- * Pinta la pestaña "Agenda": el día seleccionado (con check-off) y, aparte,
- * "Mis pendientes" con todos los ítems configurados sin importar el día en
- * que caigan — es la forma de editar/eliminar, por ejemplo, uno que solo
- * ocurre los miércoles mientras se está viendo otro día. A diferencia de
- * Hábitos (grid semanal, mide racha), aquí no hay streaks ni heatmap — solo
- * "¿se hizo o no esta ocurrencia concreta?".
+ * Pinta la pestaña "Agenda": el período seleccionado —día o semana, con
+ * check-off— y, aparte, "Mis pendientes" con todos los ítems configurados
+ * sin importar el día en que caigan — es la forma de editar/eliminar, por
+ * ejemplo, uno que solo ocurre los miércoles mientras se está viendo otro
+ * día. A diferencia de Hábitos (grid semanal, mide racha), aquí no hay
+ * streaks ni heatmap — solo "¿se hizo o no esta ocurrencia concreta?".
  */
 export async function renderAgendaView(root: HTMLElement, userId: string): Promise<void> {
   clear(root);
@@ -44,28 +63,55 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
   let items: AgendaItem[] = [];
   let completion: CompletionMap = new Map();
   let currentDate = new Date();
+  let viewMode: ViewMode = 'day';
 
-  // ---- Tarjeta: el día ----
+  // ---- Tarjeta: el período (día o semana) ----
   const dayLabel = el('span', { class: 'weeknav__range' }, ['—']);
-  const prevBtn = el('button', { class: 'btn btn--icon', 'aria-label': 'Día anterior' }, [icons.chevronLeft()]);
-  const nextBtn = el('button', { class: 'btn btn--icon', 'aria-label': 'Día siguiente' }, [icons.chevronRight()]);
+  const prevBtn = el('button', { class: 'btn btn--icon' }, [icons.chevronLeft()]);
+  const nextBtn = el('button', { class: 'btn btn--icon' }, [icons.chevronRight()]);
   const todayBtn = el('button', { class: 'btn btn--soft' }, ['Hoy']);
   const addBtn = el('button', { class: 'btn btn--primary btn--icon-text' }, [
     icons.plus(),
     el('span', {}, ['Agendar']),
   ]);
 
+  const dayModeBtn = el('button', { class: 'term-btn', type: 'button' }, ['Día']);
+  const weekModeBtn = el('button', { class: 'term-btn', type: 'button' }, ['Semana']);
+  const modeToggle = el('div', { class: 'term-toggle agenda-mode-toggle' }, [dayModeBtn, weekModeBtn]);
+
+  function updateModeToggle(): void {
+    dayModeBtn.classList.toggle('term-btn--active', viewMode === 'day');
+    weekModeBtn.classList.toggle('term-btn--active', viewMode === 'week');
+    const unit = viewMode === 'day' ? 'Día' : 'Semana';
+    prevBtn.setAttribute('aria-label', `${unit} anterior`);
+    nextBtn.setAttribute('aria-label', `${unit} siguiente`);
+  }
+  updateModeToggle();
+
+  dayModeBtn.addEventListener('click', () => {
+    if (viewMode === 'day') return;
+    viewMode = 'day';
+    updateModeToggle();
+    void load();
+  });
+  weekModeBtn.addEventListener('click', () => {
+    if (viewMode === 'week') return;
+    viewMode = 'week';
+    updateModeToggle();
+    void load();
+  });
+
   prevBtn.addEventListener('click', () => {
-    currentDate = addDays(currentDate, -1);
-    void loadDay();
+    currentDate = viewMode === 'day' ? addDays(currentDate, -1) : addWeeks(currentDate, -1);
+    void load();
   });
   nextBtn.addEventListener('click', () => {
-    currentDate = addDays(currentDate, 1);
-    void loadDay();
+    currentDate = viewMode === 'day' ? addDays(currentDate, 1) : addWeeks(currentDate, 1);
+    void load();
   });
   todayBtn.addEventListener('click', () => {
     currentDate = new Date();
-    void loadDay();
+    void load();
   });
   addBtn.addEventListener('click', () => void onAdd());
 
@@ -76,7 +122,7 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
 
   const dayList = el('div', { class: 'goal-list' });
   const dayCard = el('section', { class: 'card card--agenda' }, [
-    el('div', { class: 'card__head' }, [el('h2', { class: 'card__title' }, ['Agenda'])]),
+    el('div', { class: 'card__head' }, [el('h2', { class: 'card__title' }, ['Agenda']), modeToggle]),
     dayNav,
     dayList,
   ]);
@@ -99,7 +145,7 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
     try {
       items = await listAgendaItems();
       renderManage();
-      await loadDay();
+      await load();
     } catch (err) {
       toast(errorMessage(err, 'No se pudieron cargar tus pendientes.'), 'error');
       clear(dayList);
@@ -109,31 +155,64 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
     }
   }
 
-  async function loadDay(): Promise<void> {
-    const dateISO = toISODate(currentDate);
-    dayLabel.textContent = formatDayLabel(currentDate);
+  /** Rango de fechas a consultar en `agenda_logs` según el modo activo. */
+  function range(): { startISO: string; endISO: string } {
+    if (viewMode === 'day') {
+      const iso = toISODate(currentDate);
+      return { startISO: iso, endISO: iso };
+    }
+    const monday = startOfWeek(currentDate);
+    return { startISO: toISODate(monday), endISO: toISODate(addDays(monday, 6)) };
+  }
+
+  async function load(): Promise<void> {
+    dayLabel.textContent =
+      viewMode === 'day' ? formatDayLabel(currentDate) : formatWeekRange(startOfWeek(currentDate));
     clear(dayList);
     dayList.append(el('div', { class: 'spinner spinner--sm', 'aria-hidden': 'true' }));
     try {
-      const logs = await getAgendaLogsForRange(dateISO, dateISO);
+      const { startISO, endISO } = range();
+      const logs = await getAgendaLogsForRange(startISO, endISO);
       completion = new Map(logs.map((l) => [key(l.agenda_item_id, l.occurrence_date), l.completed]));
-      renderDay();
+      render();
     } catch (err) {
-      toast(errorMessage(err, 'No se pudo cargar el día.'), 'error');
+      toast(errorMessage(err, 'No se pudo cargar la agenda.'), 'error');
       clear(dayList);
       dayList.append(el('p', { class: 'goal-empty' }, ['No se pudo cargar.']));
     }
   }
 
+  function render(): void {
+    clear(dayList);
+    if (viewMode === 'day') renderDay();
+    else renderWeek();
+  }
+
   function renderDay(): void {
     const dateISO = toISODate(currentDate);
-    clear(dayList);
     const occurrences = occurrencesForDate(items, dateISO);
     if (occurrences.length === 0) {
       dayList.append(el('p', { class: 'goal-empty' }, ['Nada agendado para este día.']));
       return;
     }
     for (const item of occurrences) dayList.append(renderDayRow(item, dateISO));
+  }
+
+  function renderWeek(): void {
+    const monday = startOfWeek(currentDate);
+    for (const day of weekDays(monday)) {
+      const dateISO = toISODate(day);
+      const occurrences = occurrencesForDate(items, dateISO);
+      const group = el('div', { class: 'agenda-week-day' }, [
+        el('h3', { class: 'agenda-week-day__title' }, [formatWeekDayHeader(day)]),
+      ]);
+      if (occurrences.length === 0) {
+        group.append(el('p', { class: 'goal-empty goal-empty--sm' }, ['Nada agendado.']));
+      } else {
+        for (const item of occurrences) group.append(renderDayRow(item, dateISO));
+      }
+      dayList.append(group);
+    }
   }
 
   function renderDayRow(item: AgendaItem, dateISO: string): HTMLElement {
@@ -220,7 +299,7 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
       });
       items.push(created);
       renderManage();
-      renderDay();
+      render();
       toast('Pendiente agendado.', 'success');
     } catch (err) {
       toast(errorMessage(err, 'No se pudo crear el pendiente.'), 'error');
@@ -259,7 +338,7 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
       item.end_date = result.endDate;
       item.color = result.color;
       renderManage();
-      renderDay();
+      render();
       toast('Pendiente actualizado.', 'success');
     } catch (err) {
       toast(errorMessage(err, 'No se pudo actualizar.'), 'error');
@@ -273,7 +352,7 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
       await deleteAgendaItem(item.id, userId);
       items = items.filter((i) => i.id !== item.id);
       renderManage();
-      renderDay();
+      render();
       toast('Pendiente eliminado.', 'success');
     } catch (err) {
       toast(errorMessage(err, 'No se pudo eliminar.'), 'error');
@@ -284,12 +363,12 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
     const k = key(item.id, dateISO);
     const next = !(completion.get(k) ?? false);
     completion.set(k, next);
-    renderDay();
+    render();
     try {
       await setAgendaCompletion(userId, item.id, dateISO, next);
     } catch (err) {
       completion.set(k, !next);
-      renderDay();
+      render();
       toast(errorMessage(err, 'No se pudo actualizar.'), 'error');
     }
   }

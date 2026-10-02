@@ -443,11 +443,20 @@ button {
 }
 .chat__messages {
   flex: 1 1 auto;
+  /* Sin esto, un hijo flex con contenido largo no se encoge por debajo de su
+     tamaño natural (bug clásico de flexbox) y en vez de scrollear aquí
+     adentro, empuja el alto de todo el panel. */
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
   padding: 2px 6px 2px 2px;
+  /* Mismo criterio que el resto de la app: scroll funcional, barra invisible. */
+  scrollbar-width: none;
+}
+.chat__messages::-webkit-scrollbar {
+  display: none;
 }
 .chat__row {
   display: flex;
@@ -694,11 +703,23 @@ button {
     width: 22px;
     height: 22px;
   }
+  /* El botón se esconde mientras el panel está abierto: a este tamaño el
+     panel ya cubre esa esquina y el cierre queda en su propio encabezado (✕). */
+  .coach-widget--open .coach-fab {
+    display: none;
+  }
   .coach-panel {
-    right: -8px;
-    bottom: 66px;
-    width: calc(100vw - 24px);
-    height: min(600px, calc(100vh - 130px));
+    /* position:fixed (no absolute) + inset en vez de width/height en vh:
+       así el alto lo define el navegador a partir de dónde está HOY el
+       viewport visual, en cada repintado — incluido cuando el teclado abre.
+       Con calc(vh) el panel no se enteraba de que el teclado había
+       encogido la pantalla y se veía "flotando" lejos del campo de texto. */
+    position: fixed;
+    inset: 25px;
+    width: auto;
+    max-width: none;
+    height: auto;
+    max-height: none;
   }
 }
 

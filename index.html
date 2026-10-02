@@ -2,7 +2,11 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- interactive-widget=resizes-content: en navegadores que lo soportan
+         (Chrome/Android), el teclado encoge el viewport visual en vez de
+         taparlo por encima — sin esto, el panel flotante del coach (fijo
+         al viewport) puede quedar parcialmente oculto detrás del teclado. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
     <meta name="description" content="KROTON HABITOS — registra tus hábitos día a día y visualiza tu progreso." />
     <link rel="icon" type="image/png" href="/favicon-kroton.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -2307,7 +2307,7 @@ button {
     align-items: center;
     row-gap: 10px;
     column-gap: 8px;
-    padding: 14px 4px;
+    padding: 14px 18px;
   }
   .ht__habit {
     position: static;

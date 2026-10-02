@@ -52,6 +52,15 @@ export function daysBetween(aISO: string, bISO: string): number {
   return Math.round((new Date(bISO).getTime() - new Date(aISO).getTime()) / 86_400_000);
 }
 
+/**
+ * Índice del día de la semana empezando en lunes (0=lunes..6=domingo), mismo
+ * orden que DAY_LABELS/DAY_NAMES. Distinto de Date.getDay() nativo
+ * (0=domingo..6=sábado) — este es el único punto de conversión entre ambos.
+ */
+export function mondayFirstDay(date: Date): number {
+  return (date.getDay() + 6) % 7;
+}
+
 /** Etiquetas cortas de los días, empezando en lunes. */
 export const DAY_LABELS = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
 

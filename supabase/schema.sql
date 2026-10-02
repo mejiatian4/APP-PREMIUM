@@ -373,3 +373,84 @@ create policy "goals: solo el dueño con código activo"
     auth.uid() = user_id
     and exists (select 1 from public.access_codes ac where ac.user_id = auth.uid())
   );
+
+-- ----------------------------------------------------------------
+-- Agenda: ítems programados (plantilla) + registro de cumplimiento
+-- por ocurrencia concreta.
+-- ----------------------------------------------------------------
+-- A diferencia de los hábitos (se repiten siempre, sin hora, miden racha)
+-- y las metas (fecha límite única, sin repetición), un ítem de agenda tiene
+-- HORA, una regla de repetición simple, y un rango de vigencia opcional.
+-- El cumplimiento SIEMPRE vive en agenda_logs (una fila por ocurrencia
+-- marcada), incluso para ítems 'once': así hay un solo camino de código
+-- para marcar/desmarcar sin importar el tipo de repetición.
+create table if not exists public.agenda_items (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users (id) on delete cascade,
+  title        text not null,
+  note         text,
+  time_of_day  time not null,
+  recurrence   text not null default 'once' check (recurrence in ('once', 'daily', 'weekly')),
+  -- 0=lunes..6=domingo (mismo orden que DAY_LABELS en src/lib/dates.ts;
+  -- distinto de Date.getDay() nativo de JS, que es 0=domingo..6=sábado).
+  -- Solo tiene elementos cuando recurrence = 'weekly'.
+  weekdays     int[] not null default '{}',
+  start_date   date not null,
+  end_date     date,
+  color        text not null default '#5b5bd6',
+  created_at   timestamptz not null default now(),
+  constraint agenda_items_weekdays_range check (weekdays <@ array[0,1,2,3,4,5,6]),
+  constraint agenda_items_weekly_needs_days check (recurrence <> 'weekly' or cardinality(weekdays) > 0),
+  constraint agenda_items_nonweekly_no_days check (recurrence = 'weekly' or cardinality(weekdays) = 0)
+);
+
+create index if not exists agenda_items_user_idx on public.agenda_items (user_id);
+
+-- Una fila por ítem y fecha de ocurrencia concreta. Mismo patrón que
+-- habit_logs: UNIQUE habilita UPSERT al marcar; desmarcar borra la fila.
+create table if not exists public.agenda_logs (
+  id               uuid primary key default gen_random_uuid(),
+  agenda_item_id   uuid not null references public.agenda_items (id) on delete cascade,
+  user_id          uuid not null references auth.users (id) on delete cascade,
+  occurrence_date  date not null,
+  completed        boolean not null default true,
+  created_at       timestamptz not null default now(),
+  unique (agenda_item_id, occurrence_date)
+);
+
+create index if not exists agenda_logs_user_date_idx on public.agenda_logs (user_id, occurrence_date);
+
+alter table public.agenda_items enable row level security;
+alter table public.agenda_logs  enable row level security;
+
+-- Mismo candado que hábitos y metas: solo el dueño, y solo si ya canjeó un
+-- código de activación. Se crea directo con este nivel (a diferencia de
+-- habits/goals, agenda_items/agenda_logs son tablas nuevas, nunca tuvieron
+-- una política "simple" intermedia).
+drop policy if exists "agenda_items: solo el dueño con código activo" on public.agenda_items;
+create policy "agenda_items: solo el dueño con código activo"
+  on public.agenda_items
+  for all
+  to authenticated
+  using (
+    auth.uid() = user_id
+    and exists (select 1 from public.access_codes ac where ac.user_id = auth.uid())
+  )
+  with check (
+    auth.uid() = user_id
+    and exists (select 1 from public.access_codes ac where ac.user_id = auth.uid())
+  );
+
+drop policy if exists "agenda_logs: solo el dueño con código activo" on public.agenda_logs;
+create policy "agenda_logs: solo el dueño con código activo"
+  on public.agenda_logs
+  for all
+  to authenticated
+  using (
+    auth.uid() = user_id
+    and exists (select 1 from public.access_codes ac where ac.user_id = auth.uid())
+  )
+  with check (
+    auth.uid() = user_id
+    and exists (select 1 from public.access_codes ac where ac.user_id = auth.uid())
+  );

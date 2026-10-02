@@ -201,7 +201,7 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 40px;
+  padding: 14px 20px;
   min-height: calc(70px + 28px);
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface) 70%, transparent);
@@ -277,9 +277,7 @@ button {
   display: flex;
   justify-content: flex-start;
   gap: 22px;
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 16px clamp(16px, 4vw, 40px) 0;
+  padding: 16px 20px 0;
   border-bottom: 1px solid var(--border);
 }
 .app-nav__item {
@@ -340,9 +338,7 @@ button {
 }
 
 .dashboard {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: clamp(20px, 4vw, 36px) clamp(16px, 4vw, 40px) 64px;
+  padding: clamp(20px, 4vw, 36px) 20px 64px;
   display: flex;
   flex-direction: column;
   gap: 28px;
@@ -1108,6 +1104,15 @@ button {
 .check:hover {
   border-color: var(--habit, var(--brand));
 }
+.check:disabled {
+  cursor: not-allowed;
+}
+.check:disabled:not(.check--on) {
+  opacity: 0.35;
+}
+.check:disabled:hover {
+  border-color: var(--border);
+}
 .check--today {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 30%, transparent);
 }
@@ -1569,9 +1574,7 @@ button {
 
 /* ---------------- Carrusel de la tienda ---------------- */
 .shop-carousel {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 48px clamp(16px, 4vw, 40px) 40px;
+  padding: 48px 20px 40px;
   position: relative;
   z-index: 1;
 }
@@ -1878,6 +1881,95 @@ button {
   color: #000;
 }
 
+/* Selector de días de la semana (multi-selección, a diferencia del plazo) */
+.weekday-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.weekday-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.weekday-btn:hover {
+  border-color: var(--brand);
+}
+.weekday-btn--active {
+  background: var(--grad-btn);
+  border-color: transparent;
+  color: #000;
+}
+
+/* ---------------- Agenda ---------------- */
+.agenda-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.agenda-item--done {
+  opacity: 0.6;
+}
+.agenda-item__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.agenda-item__head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.agenda-item__time {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  flex: none;
+}
+.agenda-item__title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+.agenda-item--done .agenda-item__title {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+.agenda-item__note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  overflow-wrap: break-word;
+}
+.agenda-item__recurrence {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.agenda-item__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--dot);
+  flex: none;
+  margin-top: 4px;
+}
+.agenda-item--manage {
+  align-items: center;
+}
+
 .field__input--area {
   resize: vertical;
   min-height: 64px;
@@ -1987,6 +2079,13 @@ button {
 }
 .gantt {
   display: flex;
+  /* Se ajusta a su propio contenido (etiquetas + meses) en vez de estirarse
+     al ancho completo de la tarjeta: así el borde siempre termina justo
+     donde termina la cuadrícula, nunca deja una franja vacía "cortada" a
+     la derecha. Si el contenido no cabe, se topa en el 100% y el scroll
+     horizontal interno (.gantt__scroll) se encarga como siempre. */
+  width: fit-content;
+  max-width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   overflow: hidden;
@@ -2014,14 +2113,13 @@ button {
   background: var(--surface-2);
 }
 .gantt__row-label {
-  height: 36px;
+  min-height: 36px;
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  padding: 6px 12px;
   font-size: 0.85rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.25;
+  overflow-wrap: break-word;
   border-top: 1px solid var(--border);
 }
 .gantt__scroll {
@@ -2053,7 +2151,8 @@ button {
 .gantt__body {
   position: relative;
   background-image: linear-gradient(to right, var(--border) 1px, transparent 1px);
-  background-size: 130px 100%;
+  /* background-size real (debe calzar con el ancho de mes) se fija inline
+     desde gantt.ts, a partir de la misma constante que usan las columnas. */
   background-position: -1px 0;
 }
 .gantt__group-spacer {
@@ -2061,14 +2160,15 @@ button {
   background: var(--surface-2);
 }
 .gantt__row {
-  height: 36px;
+  min-height: 36px;
   position: relative;
   border-top: 1px solid var(--border);
 }
 .gantt__bar {
   position: absolute;
-  top: 6px;
-  bottom: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 24px;
   border-radius: 8px;
   background: var(--grad-btn);
   box-shadow: 0 2px 8px rgba(252, 184, 39, 0.25);

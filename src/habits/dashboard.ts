@@ -27,6 +27,7 @@ import { toast, errorMessage } from '../ui/toast';
 import { openHabitForm, confirmDialog } from '../ui/modal';
 import { signOut } from '../auth/auth';
 import { renderGoalsBoard } from '../goals/board';
+import { renderAgendaView } from '../agenda/agendaView';
 import { openSettingsPanel } from '../settings/panel';
 import { createQuoteCard } from '../ui/quotes';
 import { renderCoachChat } from '../coach/chat';
@@ -231,28 +232,49 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   const tableWrap = el('div', { class: 'table-wrap' });
   const weekSection = el('section', { class: 'week' }, [weeknav, tableWrap]);
 
-  // ---- Pestañas: Hábitos / Metas / Coach ----
-  const habitsView = el('div', { class: 'view' }, [createQuoteCard(), overview, weekSection, statsGrid]);
+  // ---- Pestañas: Agenda / Hábitos / Metas / Coach ----
+  // Las cuatro arrancan ocultas/sin cargar por igual; showView('agenda') más
+  // abajo decide cuál se ve primero y dispara su carga de datos.
+  const habitsView = el('div', { class: 'view', style: 'display:none' }, [
+    createQuoteCard(),
+    overview,
+    weekSection,
+    statsGrid,
+  ]);
   const goalsView = el('div', { class: 'view', style: 'display:none' });
+  const agendaView = el('div', { class: 'view', style: 'display:none' });
   const coachView = el('div', { class: 'view', style: 'display:none' });
 
-  const tabHabits = el('button', { class: 'tab tab--active', type: 'button' }, ['Hábitos']);
+  const tabAgenda = el('button', { class: 'tab', type: 'button' }, ['Agenda']);
+  const tabHabits = el('button', { class: 'tab', type: 'button' }, ['Hábitos']);
   const tabGoals = el('button', { class: 'tab', type: 'button' }, ['Metas']);
   const tabCoach = el('button', { class: 'tab', type: 'button' }, ['Coach']);
-  const tabs = el('div', { class: 'tabs' }, [tabHabits, tabGoals, tabCoach]);
+  const tabs = el('div', { class: 'tabs' }, [tabAgenda, tabHabits, tabGoals, tabCoach]);
 
+  let habitsLoaded = false;
   let goalsLoaded = false;
+  let agendaLoaded = false;
   let coachLoaded = false;
-  function showView(view: 'habits' | 'goals' | 'coach'): void {
+  function showView(view: 'habits' | 'goals' | 'agenda' | 'coach'): void {
     habitsView.style.display = view === 'habits' ? '' : 'none';
     goalsView.style.display = view === 'goals' ? '' : 'none';
+    agendaView.style.display = view === 'agenda' ? '' : 'none';
     coachView.style.display = view === 'coach' ? '' : 'none';
     tabHabits.classList.toggle('tab--active', view === 'habits');
     tabGoals.classList.toggle('tab--active', view === 'goals');
+    tabAgenda.classList.toggle('tab--active', view === 'agenda');
     tabCoach.classList.toggle('tab--active', view === 'coach');
+    if (view === 'habits' && !habitsLoaded) {
+      habitsLoaded = true;
+      void loadWeek();
+    }
     if (view === 'goals' && !goalsLoaded) {
       goalsLoaded = true;
       void renderGoalsBoard(goalsView, userId);
+    }
+    if (view === 'agenda' && !agendaLoaded) {
+      agendaLoaded = true;
+      void renderAgendaView(agendaView, userId);
     }
     if (view === 'coach' && !coachLoaded) {
       coachLoaded = true;
@@ -261,17 +283,18 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   }
   tabHabits.addEventListener('click', () => showView('habits'));
   tabGoals.addEventListener('click', () => showView('goals'));
+  tabAgenda.addEventListener('click', () => showView('agenda'));
   tabCoach.addEventListener('click', () => showView('coach'));
 
-  const main = el('main', { class: 'dashboard' }, [tabs, habitsView, goalsView, coachView]);
+  const main = el('main', { class: 'dashboard' }, [tabs, habitsView, goalsView, agendaView, coachView]);
   root.append(el('div', { class: 'app' }, [topbar, appNav, headerHero, main, fitplanSection]));
 
   // Los canvas ya están en el DOM: ahora sí se pueden crear las gráficas.
   const dailyChart = new DailyChart(dailyCanvas);
   const weeklyChart = new WeeklyChart(weeklyCanvas);
 
-  // ---- Carga inicial ----
-  void loadWeek();
+  // ---- Carga inicial: se abre en Agenda por defecto ----
+  showView('agenda');
 
   // ----------------------------------------------------------------
   //  Carga de datos de la semana visible
@@ -284,6 +307,7 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
     const startISO = toISODate(days[0]);
     const endISO = toISODate(days[6]);
     const todayISO = toISODate(new Date());
+    const yesterdayISO = toISODate(addDays(new Date(), -1));
 
     try {
       habits = await listHabits();
@@ -304,7 +328,7 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
         }
       }
 
-      renderTable(days, todayISO);
+      renderTable(days, todayISO, yesterdayISO);
       recomputeCharts(days, todayISO);
       await refreshStats();
     } catch (err) {
@@ -316,7 +340,7 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   // ----------------------------------------------------------------
   //  Render de la tabla semanal
   // ----------------------------------------------------------------
-  function renderTable(days: Date[], todayISO: string): void {
+  function renderTable(days: Date[], todayISO: string, yesterdayISO: string): void {
     clear(tableWrap);
 
     if (habits.length === 0) {
@@ -360,6 +384,9 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
         const done = completion.get(key(habit.id, dateISO)) === true;
         if (done) weekDone++;
         const isToday = dateISO === todayISO;
+        // Solo se puede marcar/desmarcar hoy o ayer: evita reescribir
+        // racha/historial de días más viejos (o del futuro) por error.
+        const isEditable = dateISO === todayISO || dateISO === yesterdayISO;
 
         const box = el('button', {
           class: 'check' + (done ? ' check--on' : '') + (isToday ? ' check--today' : ''),
@@ -367,9 +394,10 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
           'aria-checked': String(done),
           'aria-label': `${DAY_NAMES[i]} ${d.getDate()}, ${habit.name}`,
           type: 'button',
+          disabled: !isEditable,
         }, [icons.check()]);
         box.style.setProperty('--habit', habit.color);
-        box.addEventListener('click', () => void onToggle(habit, dateISO, box));
+        if (isEditable) box.addEventListener('click', () => void onToggle(habit, dateISO, box));
 
         cells.push(
           el(
@@ -622,7 +650,7 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
       const created = await createHabit(userId, result.name, result.color, position);
       habits.push(created);
       const days = weekDays(currentMonday);
-      renderTable(days, toISODate(new Date()));
+      renderTable(days, toISODate(new Date()), toISODate(addDays(new Date(), -1)));
       recomputeCharts(days, toISODate(new Date()));
       await refreshStats();
       toast('Hábito agregado.', 'success');
@@ -639,7 +667,7 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
       habit.name = result.name;
       habit.color = result.color;
       const days = weekDays(currentMonday);
-      renderTable(days, toISODate(new Date()));
+      renderTable(days, toISODate(new Date()), toISODate(addDays(new Date(), -1)));
       recomputeCharts(days, toISODate(new Date()));
       await refreshStats();
       toast('Hábito actualizado.', 'success');
@@ -657,7 +685,7 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
       await deleteHabit(habit.id);
       habits = habits.filter((h) => h.id !== habit.id);
       const days = weekDays(currentMonday);
-      renderTable(days, toISODate(new Date()));
+      renderTable(days, toISODate(new Date()), toISODate(addDays(new Date(), -1)));
       recomputeCharts(days, toISODate(new Date()));
       await refreshStats();
       toast('Hábito eliminado.', 'success');

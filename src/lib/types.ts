@@ -44,3 +44,31 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
 }
+
+/** Cómo se repite un ítem de la agenda. */
+export type AgendaRecurrence = 'once' | 'daily' | 'weekly';
+
+/** Un ítem de agenda (la "plantilla"): título + hora + regla de repetición. */
+export interface AgendaItem {
+  id: string;
+  user_id: string;
+  title: string;
+  note: string | null;
+  time_of_day: string; // 'HH:MM:SS' tal como lo devuelve Postgres
+  recurrence: AgendaRecurrence;
+  weekdays: number[]; // 0=lunes..6=domingo; solo relevante si recurrence === 'weekly'
+  start_date: string; // 'YYYY-MM-DD'; para 'once' es también la única fecha de ocurrencia
+  end_date: string | null;
+  color: string;
+  created_at: string;
+}
+
+/** Cumplimiento de un ítem de agenda en una fecha concreta. */
+export interface AgendaLog {
+  id: string;
+  agenda_item_id: string;
+  user_id: string;
+  occurrence_date: string; // 'YYYY-MM-DD'
+  completed: boolean;
+  created_at: string;
+}

@@ -10,7 +10,13 @@ const TERM_LABELS: Record<GoalTerm, string> = {
   long: 'Largo plazo',
 };
 
-const MONTH_WIDTH_PX = 130;
+// Ancho de cada columna de mes: se calcula según el espacio real disponible
+// (ver más abajo), entre estos dos límites — compacto en pantallas angostas,
+// sin estirarse de forma absurda cuando hay pocos meses en una tarjeta ancha.
+const MONTH_WIDTH_MIN_PX = 90;
+const MONTH_WIDTH_MAX_PX = 260;
+// Debe coincidir con el ancho fijo de .gantt__labels en main.css.
+const LABELS_WIDTH_PX = 170;
 
 type DatedGoal = Goal & { start_date: string; end_date: string };
 
@@ -68,6 +74,16 @@ export function renderGantt(container: HTMLElement, goals: Goal[]): void {
   const rangeStartMonth = minM - 1; // 0-based
   const monthsCount = (maxY - minY) * 12 + (maxM - minM) + 1;
 
+  // `container` ya está en la página con su ancho real (a diferencia de
+  // `.gantt`, que se ajusta a su propio contenido — medirlo a él mismo
+  // después sería circular). A partir de eso repartimos el espacio
+  // disponible entre los meses, respetando el mínimo/máximo de arriba.
+  const availableWidth = container.clientWidth - LABELS_WIDTH_PX;
+  const monthWidthPx = Math.min(
+    MONTH_WIDTH_MAX_PX,
+    Math.max(MONTH_WIDTH_MIN_PX, availableWidth / monthsCount),
+  );
+
   const months: { year: number; month: number }[] = [];
   for (let i = 0; i < monthsCount; i++) {
     const total = rangeStartMonth + i;
@@ -82,13 +98,13 @@ export function renderGantt(container: HTMLElement, goals: Goal[]): void {
     return monthOffset + (d - 1) / daysInMonth;
   }
 
-  const timelineWidth = monthsCount * MONTH_WIDTH_PX;
+  const timelineWidth = monthsCount * monthWidthPx;
 
   const header = el(
     'div',
     { class: 'gantt__header' },
     months.map(({ year, month }) =>
-      el('div', { class: 'gantt__month', style: `width:${MONTH_WIDTH_PX}px` }, [monthLabel(year, month)]),
+      el('div', { class: 'gantt__month', style: `width:${monthWidthPx}px` }, [monthLabel(year, month)]),
     ),
   );
 
@@ -143,9 +159,23 @@ export function renderGantt(container: HTMLElement, goals: Goal[]): void {
     el('div', { class: 'gantt__labels-spacer' }),
     ...labelItems,
   ]);
-  const body = el('div', { class: 'gantt__body' }, [todayLine, ...rowItems]);
+  const body = el(
+    'div',
+    { class: 'gantt__body', style: `background-size:${monthWidthPx}px 100%` },
+    [todayLine, ...rowItems],
+  );
   const timeline = el('div', { class: 'gantt__timeline', style: `width:${timelineWidth}px` }, [header, body]);
   const scrollArea = el('div', { class: 'gantt__scroll' }, [timeline]);
 
   container.append(el('div', { class: 'gantt' }, [labelsCol, scrollArea]));
+
+  // Las etiquetas y las filas de la barra son dos columnas independientes
+  // que se apilan en paralelo (no una sola tabla): si un título largo pasa
+  // a dos líneas, igualamos la altura de esa fila con la de su barra para
+  // que no se desalineen entre sí ni con las filas de abajo.
+  for (let i = 0; i < labelItems.length; i++) {
+    const h = Math.max(labelItems[i].scrollHeight, rowItems[i].scrollHeight);
+    labelItems[i].style.height = `${h}px`;
+    rowItems[i].style.height = `${h}px`;
+  }
 }

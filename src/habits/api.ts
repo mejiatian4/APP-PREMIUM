@@ -34,18 +34,23 @@ export async function createHabit(
   return data;
 }
 
-/** Actualiza el nombre y/o color de un hábito. */
+/**
+ * Actualiza el nombre y/o color de un hábito.
+ * El filtro por `userId` (además de `id`) es puro cinturón y tirantes: RLS ya
+ * impide tocar hábitos ajenos, esto solo evita depender de una sola capa.
+ */
 export async function updateHabit(
   id: string,
+  userId: string,
   fields: Partial<Pick<Habit, 'name' | 'color' | 'position'>>,
 ): Promise<void> {
-  const { error } = await supabase.from('habits').update(fields).eq('id', id);
+  const { error } = await supabase.from('habits').update(fields).eq('id', id).eq('user_id', userId);
   if (error) throw error;
 }
 
 /** Elimina un hábito. Sus registros se borran en cascada (ver schema.sql). */
-export async function deleteHabit(id: string): Promise<void> {
-  const { error } = await supabase.from('habits').delete().eq('id', id);
+export async function deleteHabit(id: string, userId: string): Promise<void> {
+  const { error } = await supabase.from('habits').delete().eq('id', id).eq('user_id', userId);
   if (error) throw error;
 }
 
@@ -92,7 +97,8 @@ export async function setCompletion(
       .from('habit_logs')
       .delete()
       .eq('habit_id', habitId)
-      .eq('log_date', dateISO);
+      .eq('log_date', dateISO)
+      .eq('user_id', userId);
     if (error) throw error;
   }
 }

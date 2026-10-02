@@ -1,4 +1,5 @@
 import type { Goal, GoalTerm } from '../lib/types';
+import { formatShortDate } from '../lib/dates';
 
 const TERMS: GoalTerm[] = ['short', 'medium', 'long'];
 const TERM_LABELS: Record<GoalTerm, string> = {
@@ -8,11 +9,7 @@ const TERM_LABELS: Record<GoalTerm, string> = {
 };
 
 function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d)
-    .toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })
-    .replace('.', '');
+  return iso ? formatShortDate(iso) : '—';
 }
 
 /** Trae el logo público y lo convierte a data URL para incrustarlo en el PDF. */

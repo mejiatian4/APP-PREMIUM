@@ -1,5 +1,5 @@
 import type { Goal, GoalTerm } from '../lib/types';
-import { toISODate } from '../lib/dates';
+import { toISODate, formatShortDate } from '../lib/dates';
 import { listGoals, createGoal, updateGoal, deleteGoal } from './api';
 import { renderGantt } from './gantt';
 import { el, clear } from '../ui/dom';
@@ -14,18 +14,11 @@ const TERM_LABELS: Record<GoalTerm, string> = {
   long: 'Largo plazo',
 };
 
-/** Formatea 'YYYY-MM-DD' como "15 ago 2026", sin desfases de zona horaria. */
-function formatGoalDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  return date.toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '');
-}
-
 /** Rango legible para la tarjeta: "1 jul – 15 ago 2026", o solo el extremo si falta uno. */
 function formatGoalRange(startISO: string | null, endISO: string | null): string {
-  if (startISO && endISO) return `${formatGoalDate(startISO)} – ${formatGoalDate(endISO)}`;
-  if (endISO) return `Fin: ${formatGoalDate(endISO)}`;
-  return `Inicio: ${formatGoalDate(startISO!)}`;
+  if (startISO && endISO) return `${formatShortDate(startISO)} – ${formatShortDate(endISO)}`;
+  if (endISO) return `Fin: ${formatShortDate(endISO)}`;
+  return `Inicio: ${formatShortDate(startISO!)}`;
 }
 
 export async function renderGoalsBoard(root: HTMLElement, userId: string): Promise<void> {
@@ -176,7 +169,7 @@ export async function renderGoalsBoard(root: HTMLElement, userId: string): Promi
     });
     if (!result) return;
     try {
-      await updateGoal(goal.id, {
+      await updateGoal(goal.id, userId, {
         title: result.title,
         description: result.description,
         term: result.term,
@@ -200,7 +193,7 @@ export async function renderGoalsBoard(root: HTMLElement, userId: string): Promi
     goal.completed = next;
     renderAll();
     try {
-      await updateGoal(goal.id, { completed: next });
+      await updateGoal(goal.id, userId, { completed: next });
     } catch (err) {
       goal.completed = !next;
       renderAll();
@@ -212,7 +205,7 @@ export async function renderGoalsBoard(root: HTMLElement, userId: string): Promi
     const ok = await confirmDialog(`¿Eliminar la meta "${goal.title}"?`);
     if (!ok) return;
     try {
-      await deleteGoal(goal.id);
+      await deleteGoal(goal.id, userId);
       goals = goals.filter((g) => g.id !== goal.id);
       renderAll();
       toast('Meta eliminada.', 'success');

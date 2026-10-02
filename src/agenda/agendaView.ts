@@ -1,5 +1,5 @@
 import type { AgendaItem, CompletionMap } from '../lib/types';
-import { toISODate, addDays } from '../lib/dates';
+import { toISODate, addDays, capitalize, isSameDay } from '../lib/dates';
 import {
   listAgendaItems,
   createAgendaItem,
@@ -24,11 +24,10 @@ function formatTime(value: string): string {
 
 /** "Hoy · lun 21 sep" si es hoy, o "lun 21 sep" para cualquier otro día. */
 function formatDayLabel(date: Date): string {
-  const base = date
-    .toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' })
-    .replace('.', '');
-  const label = base.charAt(0).toUpperCase() + base.slice(1);
-  return toISODate(date) === toISODate(new Date()) ? `Hoy · ${label}` : label;
+  const label = capitalize(
+    date.toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' }).replace('.', ''),
+  );
+  return isSameDay(date, new Date()) ? `Hoy · ${label}` : label;
 }
 
 /**
@@ -241,7 +240,7 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
     });
     if (!result) return;
     try {
-      await updateAgendaItem(item.id, {
+      await updateAgendaItem(item.id, userId, {
         title: result.title,
         note: result.note,
         time_of_day: result.timeOfDay,
@@ -271,7 +270,7 @@ export async function renderAgendaView(root: HTMLElement, userId: string): Promi
     const ok = await confirmDialog(`¿Eliminar "${item.title}"? También se borrarán sus registros de cumplimiento.`);
     if (!ok) return;
     try {
-      await deleteAgendaItem(item.id);
+      await deleteAgendaItem(item.id, userId);
       items = items.filter((i) => i.id !== item.id);
       renderManage();
       renderDay();

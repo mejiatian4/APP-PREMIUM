@@ -21,9 +21,51 @@ interface HabitFormResult {
 }
 
 /** Cierra el modal abierto, si lo hay. */
-function dismiss(overlay: HTMLElement): void {
+export function dismiss(overlay: HTMLElement): void {
   overlay.classList.remove('modal--visible');
   overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
+}
+
+/**
+ * Monta un overlay de modal ya construido: lo agrega al DOM y lo anima a
+ * visible. Un clic fuera de la tarjeta o la tecla Escape llaman a
+ * `onDismiss` — el llamador decide qué hacer (p. ej. además de cerrar
+ * visualmente, resolver una promesa pendiente con null/false).
+ */
+export function mountOverlay(overlay: HTMLElement, onDismiss: () => void): void {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) onDismiss();
+  });
+  document.addEventListener('keydown', function onEsc(ev) {
+    if (ev.key === 'Escape') {
+      document.removeEventListener('keydown', onEsc);
+      onDismiss();
+    }
+  });
+  document.body.append(overlay);
+  requestAnimationFrame(() => overlay.classList.add('modal--visible'));
+}
+
+/** Selector de color por franjas (swatches), reutilizado por los formularios que llevan color. */
+function createColorSwatchPicker(initial: string): { element: HTMLElement; getValue(): string } {
+  let selected = initial;
+  const swatches = HABIT_COLORS.map((c) => {
+    const b = el('button', {
+      type: 'button',
+      class: 'swatch' + (c === selected ? ' swatch--active' : ''),
+      'aria-label': `Color ${c}`,
+      title: c,
+    });
+    b.style.setProperty('--swatch', c);
+    b.addEventListener('click', () => {
+      selected = c;
+      row.querySelectorAll('.swatch').forEach((s) => s.classList.remove('swatch--active'));
+      b.classList.add('swatch--active');
+    });
+    return b;
+  });
+  const row = el('div', { class: 'swatch-row' }, swatches);
+  return { element: row, getValue: () => selected };
 }
 
 /**
@@ -33,7 +75,6 @@ function dismiss(overlay: HTMLElement): void {
 export function openHabitForm(initial?: { name: string; color: string }): Promise<HabitFormResult | null> {
   return new Promise((resolve) => {
     const isEdit = Boolean(initial);
-    let selectedColor = initial?.color ?? HABIT_COLORS[0];
 
     const nameInput = el('input', {
       type: 'text',
@@ -44,22 +85,7 @@ export function openHabitForm(initial?: { name: string; color: string }): Promis
       value: initial?.name ?? '',
     });
 
-    const swatches = HABIT_COLORS.map((c) => {
-      const b = el('button', {
-        type: 'button',
-        class: 'swatch' + (c === selectedColor ? ' swatch--active' : ''),
-        'aria-label': `Color ${c}`,
-        title: c,
-      });
-      b.style.setProperty('--swatch', c);
-      b.addEventListener('click', () => {
-        selectedColor = c;
-        swatchRow.querySelectorAll('.swatch').forEach((s) => s.classList.remove('swatch--active'));
-        b.classList.add('swatch--active');
-      });
-      return b;
-    });
-    const swatchRow = el('div', { class: 'swatch-row' }, swatches);
+    const colorPicker = createColorSwatchPicker(initial?.color ?? HABIT_COLORS[0]);
 
     const cancelBtn = el('button', { type: 'button', class: 'btn btn--ghost' }, ['Cancelar']);
     const saveBtn = el('button', { type: 'submit', class: 'btn btn--primary' }, [
@@ -74,7 +100,7 @@ export function openHabitForm(initial?: { name: string; color: string }): Promis
       ]),
       el('div', { class: 'field' }, [
         el('label', { class: 'field__label' }, ['Color']),
-        swatchRow,
+        colorPicker.element,
       ]),
       el('div', { class: 'modal__actions' }, [cancelBtn, saveBtn]),
     ]);
@@ -93,21 +119,10 @@ export function openHabitForm(initial?: { name: string; color: string }): Promis
         nameInput.focus();
         return;
       }
-      close({ name, color: selectedColor });
+      close({ name, color: colorPicker.getValue() });
     });
     cancelBtn.addEventListener('click', () => close(null));
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close(null);
-    });
-    document.addEventListener('keydown', function onEsc(ev) {
-      if (ev.key === 'Escape') {
-        document.removeEventListener('keydown', onEsc);
-        close(null);
-      }
-    });
-
-    document.body.append(overlay);
-    requestAnimationFrame(() => overlay.classList.add('modal--visible'));
+    mountOverlay(overlay, () => close(null));
     nameInput.focus();
   });
 }
@@ -264,18 +279,7 @@ export function openGoalForm(
       });
     });
     cancelBtn.addEventListener('click', () => close(null));
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close(null);
-    });
-    document.addEventListener('keydown', function onEsc(ev) {
-      if (ev.key === 'Escape') {
-        document.removeEventListener('keydown', onEsc);
-        close(null);
-      }
-    });
-
-    document.body.append(overlay);
-    requestAnimationFrame(() => overlay.classList.add('modal--visible'));
+    mountOverlay(overlay, () => close(null));
     titleInput.focus();
   });
 }
@@ -319,7 +323,7 @@ export function openAgendaItemForm(
     const isEdit = Boolean(initial);
     let selectedRecurrence: AgendaRecurrence = initial?.recurrence ?? 'once';
     let selectedWeekdays = new Set<number>(initial?.weekdays ?? []);
-    let selectedColor = initial?.color ?? HABIT_COLORS[0];
+    const colorPicker = createColorSwatchPicker(initial?.color ?? HABIT_COLORS[0]);
 
     const titleInput = el('input', {
       type: 'text',
@@ -426,23 +430,6 @@ export function openAgendaItemForm(
     const recurrenceRow = el('div', { class: 'term-toggle' }, recurrenceButtons);
     syncRecurrenceUI();
 
-    const swatches = HABIT_COLORS.map((c) => {
-      const b = el('button', {
-        type: 'button',
-        class: 'swatch' + (c === selectedColor ? ' swatch--active' : ''),
-        'aria-label': `Color ${c}`,
-        title: c,
-      });
-      b.style.setProperty('--swatch', c);
-      b.addEventListener('click', () => {
-        selectedColor = c;
-        swatchRow.querySelectorAll('.swatch').forEach((s) => s.classList.remove('swatch--active'));
-        b.classList.add('swatch--active');
-      });
-      return b;
-    });
-    const swatchRow = el('div', { class: 'swatch-row' }, swatches);
-
     const cancelBtn = el('button', { type: 'button', class: 'btn btn--ghost' }, ['Cancelar']);
     const saveBtn = el('button', { type: 'submit', class: 'btn btn--primary' }, [
       isEdit ? 'Guardar cambios' : 'Agendar',
@@ -471,7 +458,7 @@ export function openAgendaItemForm(
       dateError,
       el('div', { class: 'field' }, [
         el('label', { class: 'field__label' }, ['Color']),
-        swatchRow,
+        colorPicker.element,
       ]),
       el('div', { class: 'modal__actions' }, [cancelBtn, saveBtn]),
     ]);
@@ -512,22 +499,11 @@ export function openAgendaItemForm(
         weekdays: selectedRecurrence === 'weekly' ? [...selectedWeekdays] : [],
         startDate,
         endDate: selectedRecurrence === 'once' ? null : endPicker.getValue(),
-        color: selectedColor,
+        color: colorPicker.getValue(),
       });
     });
     cancelBtn.addEventListener('click', () => close(null));
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close(null);
-    });
-    document.addEventListener('keydown', function onEsc(ev) {
-      if (ev.key === 'Escape') {
-        document.removeEventListener('keydown', onEsc);
-        close(null);
-      }
-    });
-
-    document.body.append(overlay);
-    requestAnimationFrame(() => overlay.classList.add('modal--visible'));
+    mountOverlay(overlay, () => close(null));
     titleInput.focus();
   });
 }
@@ -550,12 +526,7 @@ export function confirmDialog(message: string, confirmLabel = 'Eliminar'): Promi
     };
     cancelBtn.addEventListener('click', () => close(false));
     okBtn.addEventListener('click', () => close(true));
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) close(false);
-    });
-
-    document.body.append(overlay);
-    requestAnimationFrame(() => overlay.classList.add('modal--visible'));
+    mountOverlay(overlay, () => close(false));
     okBtn.focus();
   });
 }

@@ -34,17 +34,22 @@ export async function createGoal(userId: string, fields: GoalFields): Promise<Go
   return data;
 }
 
-/** Actualiza campos de una meta (título, descripción, plazo, fecha o estado). */
+/**
+ * Actualiza campos de una meta (título, descripción, plazo, fecha o estado).
+ * El filtro por `userId` (además de `id`) es puro cinturón y tirantes: RLS ya
+ * impide tocar metas ajenas, esto solo evita depender de una sola capa.
+ */
 export async function updateGoal(
   id: string,
+  userId: string,
   fields: Partial<GoalFields & { completed: boolean }>,
 ): Promise<void> {
-  const { error } = await supabase.from('goals').update(fields).eq('id', id);
+  const { error } = await supabase.from('goals').update(fields).eq('id', id).eq('user_id', userId);
   if (error) throw error;
 }
 
 /** Elimina una meta. */
-export async function deleteGoal(id: string): Promise<void> {
-  const { error } = await supabase.from('goals').delete().eq('id', id);
+export async function deleteGoal(id: string, userId: string): Promise<void> {
+  const { error } = await supabase.from('goals').delete().eq('id', id).eq('user_id', userId);
   if (error) throw error;
 }

@@ -1,9 +1,6 @@
 import Chart from 'chart.js/auto';
 import { DAY_LABELS } from '../lib/dates';
-
-function cssVar(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
+import { cssVar } from './theme';
 
 export class WeeklyChart {
   private chart: Chart;

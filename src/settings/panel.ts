@@ -5,19 +5,11 @@ import { listGoals } from '../goals/api';
 import { downloadGoalsPdf } from '../goals/pdf';
 import { deleteAccount } from './api';
 import { signOut } from '../auth/auth';
-
-function dismiss(overlay: HTMLElement): void {
-  overlay.classList.remove('modal--visible');
-  overlay.addEventListener('transitionend', () => overlay.remove(), { once: true });
-}
+import { dismiss, mountOverlay } from '../ui/modal';
 
 function openOverlay(card: HTMLElement): HTMLElement {
   const overlay = el('div', { class: 'modal' }, [card]);
-  document.body.append(overlay);
-  requestAnimationFrame(() => overlay.classList.add('modal--visible'));
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) dismiss(overlay);
-  });
+  mountOverlay(overlay, () => dismiss(overlay));
   return overlay;
 }
 

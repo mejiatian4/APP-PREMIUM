@@ -79,7 +79,7 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
     ]),
   ]);
 
-  const heroKicker = el('span', { class: 'header-hero__kicker' }, ['Hábitos · Metas & Coach']);
+  const heroKicker = el('span', { class: 'header-hero__kicker' }, ['Agenda · Hábitos · Metas & Coach']);
   const heroDesc = el('p', { class: 'header-hero__desc' }, [
     'Registra tus hábitos día a día, organiza tus metas y recibe orientación personalizada de tu coach con inteligencia artificial.',
   ]);
@@ -642,6 +642,14 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   // ----------------------------------------------------------------
   //  Acciones CRUD
   // ----------------------------------------------------------------
+  /** Repinta la tabla de la semana visible y las gráficas tras un cambio en la lista de hábitos. */
+  function refreshTableAndCharts(): void {
+    const days = weekDays(currentMonday);
+    const todayISO = toISODate(new Date());
+    renderTable(days, todayISO, toISODate(addDays(new Date(), -1)));
+    recomputeCharts(days, todayISO);
+  }
+
   async function onAddHabit(): Promise<void> {
     const result = await openHabitForm();
     if (!result) return;
@@ -649,9 +657,7 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
       const position = habits.length;
       const created = await createHabit(userId, result.name, result.color, position);
       habits.push(created);
-      const days = weekDays(currentMonday);
-      renderTable(days, toISODate(new Date()), toISODate(addDays(new Date(), -1)));
-      recomputeCharts(days, toISODate(new Date()));
+      refreshTableAndCharts();
       await refreshStats();
       toast('Hábito agregado.', 'success');
     } catch (err) {
@@ -663,12 +669,10 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
     const result = await openHabitForm({ name: habit.name, color: habit.color });
     if (!result) return;
     try {
-      await updateHabit(habit.id, { name: result.name, color: result.color });
+      await updateHabit(habit.id, userId, { name: result.name, color: result.color });
       habit.name = result.name;
       habit.color = result.color;
-      const days = weekDays(currentMonday);
-      renderTable(days, toISODate(new Date()), toISODate(addDays(new Date(), -1)));
-      recomputeCharts(days, toISODate(new Date()));
+      refreshTableAndCharts();
       await refreshStats();
       toast('Hábito actualizado.', 'success');
     } catch (err) {
@@ -682,11 +686,9 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
     );
     if (!ok) return;
     try {
-      await deleteHabit(habit.id);
+      await deleteHabit(habit.id, userId);
       habits = habits.filter((h) => h.id !== habit.id);
-      const days = weekDays(currentMonday);
-      renderTable(days, toISODate(new Date()), toISODate(addDays(new Date(), -1)));
-      recomputeCharts(days, toISODate(new Date()));
+      refreshTableAndCharts();
       await refreshStats();
       toast('Hábito eliminado.', 'success');
     } catch (err) {

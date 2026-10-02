@@ -7,7 +7,11 @@ const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'
 
 function touchCookie(): void {
   const maxAgeSeconds = Math.floor(MAX_INACTIVITY_MS / 1000);
-  document.cookie = `${COOKIE_NAME}=1; max-age=${maxAgeSeconds}; path=/; samesite=lax`;
+  // `secure` solo si la página corre en HTTPS: en local (`npm run dev` por
+  // http://localhost) el navegador descarta por completo una cookie Secure,
+  // lo que rompería este vigilante en desarrollo.
+  const secure = window.location.protocol === 'https:' ? '; secure' : '';
+  document.cookie = `${COOKIE_NAME}=1; max-age=${maxAgeSeconds}; path=/; samesite=lax${secure}`;
 }
 
 // Nos apoyamos en el propio vencimiento (`max-age`) de la cookie: si sigue

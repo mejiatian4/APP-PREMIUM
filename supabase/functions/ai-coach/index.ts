@@ -46,6 +46,11 @@ const CORS_HEADERS = {
 const MAX_MESSAGE_LENGTH = 1000;
 const MAX_HISTORY_TURNS = 10;
 const LOOKBACK_DAYS = 60;
+// Tope de llamadas reales a Groq por usuario por hora: protege el
+// presupuesto compartido de la API (de pago) contra una cuenta —aunque ya
+// esté activada— scripteando mensajes sin parar. Generoso para una
+// conversación normal, acotado para abuso automatizado.
+const MAX_CALLS_PER_HOUR = 40;
 
 interface ChatTurn {
   role: 'user' | 'assistant';
@@ -238,6 +243,23 @@ Deno.serve(async (req: Request) => {
   });
   const { data: userData, error: userError } = await supabaseClient.auth.getUser();
   if (userError || !userData.user) return json({ error: 'No autenticado.' }, 401);
+  const userId = userData.user.id;
+
+  // Mismo candado que el resto de la app: sin código de activación
+  // canjeado, el tablero nunca deja ver datos reales, pero sin este
+  // chequeo CUALQUIER cuenta autenticada (incluida una gratis que nunca
+  // compró nada) podría seguir llamando a esta función y gastando el
+  // presupuesto de Groq. RLS en `access_codes` ya limita esto a "ver mi
+  // propio código", así que la consulta no puede confirmar/descartar la
+  // existencia de un código ajeno.
+  const { data: accessCode, error: accessCodeError } = await supabaseClient
+    .from('access_codes')
+    .select('code')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (accessCodeError || !accessCode) {
+    return json({ error: 'Activa tu cuenta con tu código antes de usar el coach.' }, 403);
+  }
 
   let body: { message?: unknown; history?: unknown; todayISO?: unknown };
   try {
@@ -249,6 +271,20 @@ Deno.serve(async (req: Request) => {
   const message = typeof body.message === 'string' ? body.message.trim() : '';
   if (!message) return json({ error: 'Mensaje vacío.' }, 400);
   if (message.length > MAX_MESSAGE_LENGTH) return json({ error: 'El mensaje es demasiado largo.' }, 400);
+
+  // Límite de frecuencia: cuenta llamadas reales de la última hora (ver
+  // ai_coach_calls en schema.sql) antes de dejar pasar una más.
+  const oneHourAgoISO = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { count: recentCalls, error: callsCountError } = await supabaseClient
+    .from('ai_coach_calls')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', oneHourAgoISO);
+  if (callsCountError) {
+    console.error('ai_coach_calls count error:', callsCountError);
+  } else if ((recentCalls ?? 0) >= MAX_CALLS_PER_HOUR) {
+    return json({ error: 'Has usado mucho al coach en la última hora. Espera un poco y vuelve a intentarlo.' }, 429);
+  }
 
   const todayISO = isValidISODate(body.todayISO) ? body.todayISO : new Date().toISOString().slice(0, 10);
 
@@ -265,6 +301,12 @@ Deno.serve(async (req: Request) => {
     ...history.map((turn) => ({ role: turn.role, content: turn.text })),
     { role: 'user', content: message },
   ];
+
+  // Se registra ANTES de llamar a Groq, no solo si responde bien: así un
+  // intento que falla del lado de Groq también cuenta para el límite, en
+  // vez de ser un atajo gratis para reintentar sin tope.
+  const { error: recordCallError } = await supabaseClient.from('ai_coach_calls').insert({ user_id: userId });
+  if (recordCallError) console.error('ai_coach_calls insert error:', recordCallError);
 
   let groqRes: Response;
   try {

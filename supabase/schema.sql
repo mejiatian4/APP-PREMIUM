@@ -454,3 +454,34 @@ create policy "agenda_logs: solo el dueño con código activo"
     auth.uid() = user_id
     and exists (select 1 from public.access_codes ac where ac.user_id = auth.uid())
   );
+
+-- ----------------------------------------------------------------
+-- Límite de frecuencia del coach de IA
+-- ----------------------------------------------------------------
+-- La Edge Function `ai-coach` llama a la API de Groq (de pago) usando una
+-- sola clave compartida. Sin un límite, una cuenta (aunque ya esté
+-- activada con su código) podría scriptear mensajes sin parar y agotar
+-- ese presupuesto. Esta tabla registra cada llamada que de verdad llegó a
+-- Groq; la función cuenta las filas del usuario en la última hora antes de
+-- llamar y rechaza si ya llegó al tope (ver supabase/functions/ai-coach).
+create table if not exists public.ai_coach_calls (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references auth.users (id) on delete cascade,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists ai_coach_calls_user_time_idx
+  on public.ai_coach_calls (user_id, created_at);
+
+alter table public.ai_coach_calls enable row level security;
+
+-- Solo registra/cuenta llamadas: no son datos personales, así que basta con
+-- que cada cuenta vea y registre únicamente las suyas (sin exigir código
+-- activo aquí — ese chequeo ya lo hace la función antes de llegar a esto).
+drop policy if exists "ai_coach_calls: solo el dueño" on public.ai_coach_calls;
+create policy "ai_coach_calls: solo el dueño"
+  on public.ai_coach_calls
+  for all
+  to authenticated
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);

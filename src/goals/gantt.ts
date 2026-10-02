@@ -1,5 +1,5 @@
 import type { Goal, GoalTerm } from '../lib/types';
-import { toISODate } from '../lib/dates';
+import { toISODate, formatShortDate, capitalize } from '../lib/dates';
 import { el, clear } from '../ui/dom';
 import { icons } from '../ui/icons';
 
@@ -21,21 +21,12 @@ const LABELS_WIDTH_PX = 170;
 type DatedGoal = Goal & { start_date: string; end_date: string };
 
 function monthLabel(year: number, month: number): string {
-  const label = new Date(year, month, 1).toLocaleDateString('es', { month: 'long' });
-  return label.charAt(0).toUpperCase() + label.slice(1);
+  return capitalize(new Date(year, month, 1).toLocaleDateString('es', { month: 'long' }));
 }
 
 function daysInMonthOf(dateISO: string): number {
   const [y, m] = dateISO.split('-').map(Number);
   return new Date(y, m, 0).getDate();
-}
-
-/** Formatea 'YYYY-MM-DD' como "15 ago 2026", sin desfases de zona horaria. */
-function formatShortDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d)
-    .toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })
-    .replace('.', '');
 }
 
 /**

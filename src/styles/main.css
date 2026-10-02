@@ -19,6 +19,8 @@
 
   --grad: linear-gradient(135deg, #fcb827 0%, #ffd770 55%, #ffffff 100%);
   --grad-btn: linear-gradient(135deg, #d99a1a 0%, #fcb827 45%, #ffd770 75%, rgba(255, 255, 255, 0.95) 100%);
+  /* Raya superior de las tarjetas (.card::before aquí y en fitplan.css). */
+  --grad-line: linear-gradient(90deg, #fcb827, #ffd770 70%, rgba(255, 255, 255, 0.4));
 
   --flame: #fcb827;
   --danger: #ff5555;
@@ -670,7 +672,7 @@ button {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, #fcb827, #ffd770 70%, rgba(255, 255, 255, 0.4));
+  background: var(--grad-line);
   opacity: 0.6;
 }
 .card__head {
@@ -1310,6 +1312,10 @@ button {
   flex-direction: column;
   gap: 6px;
 }
+.turnstile-field {
+  display: flex;
+  justify-content: center;
+}
 .field__label {
   font-size: 0.78rem;
   font-weight: 600;
@@ -1710,24 +1716,6 @@ button {
   letter-spacing: 0.06em;
   color: var(--brand);
 }
-.footer-sub {
-  display: block;
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
-.footer-ig {
-  display: inline-block;
-  margin-top: 14px;
-  color: var(--brand);
-  font-size: 11px;
-  text-decoration: none;
-  font-weight: 700;
-}
-.footer-ig:hover {
-  text-decoration: underline;
-}
-
 /* ---------------- Metas ---------------- */
 .goals-board {
   display: grid;
@@ -1743,6 +1731,18 @@ button {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  position: relative;
+  overflow: hidden;
+}
+.goal-column::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--grad-line);
+  opacity: 0.6;
 }
 .goal-column__head {
   display: flex;
@@ -2074,9 +2074,6 @@ button {
 }
 
 /* ---------------- Cronograma (Gantt) ---------------- */
-.card--gantt {
-  overflow: visible;
-}
 .gantt {
   display: flex;
   /* Se ajusta a su propio contenido (etiquetas + meses) en vez de estirarse
@@ -2280,9 +2277,6 @@ button {
 
 @media (max-width: 420px) {
   .btn--icon-text span {
-    display: none;
-  }
-  .addbtn-label {
     display: none;
   }
 }

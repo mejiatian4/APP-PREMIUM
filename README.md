@@ -10,9 +10,14 @@ Pensada para desplegarse **gratis**: el sitio en **GitHub Pages** (con dominio p
 
 **Acceso premium**
 - Registro e inicio de sesión con correo y contraseña (Supabase Auth), con sesión persistente y recuperación de contraseña por correo.
+- Confirmación de correo obligatoria antes de poder iniciar sesión, y CAPTCHA (Cloudflare Turnstile) opcional en el registro, para que no se puedan crear cuentas por script.
 - Antes de ver el tablero, cada cuenta debe canjear un **código de 6 caracteres** (3 letras + 3 números, ej. `KRT482`) pegado en la tirilla de la prenda comprada. Un código solo se puede canjear una vez, y una cuenta solo puede tener un código activo.
 - Límite de 5 intentos fallidos cada 10 minutos por cuenta, para que no se puedan adivinar códigos por prueba y error.
-- La regla se aplica también en la base de datos (RLS): sin un código canjeado no hay acceso a hábitos ni metas, aunque se llame directo a la API con el token de la sesión.
+- La regla se aplica también en la base de datos (RLS): sin un código canjeado no hay acceso a hábitos, metas ni agenda, aunque se llame directo a la API con el token de la sesión.
+
+**Agenda**
+- Pendientes con **hora** y repetición (una vez / todos los días / días específicos de la semana), a propósito separados de los Hábitos: sin racha ni heatmap, solo "¿se hizo o no esta ocurrencia concreta?".
+- Vista del día seleccionado con marcar/desmarcar, y lista "Mis pendientes" para editar o eliminar cualquier ítem sin importar el día en que caiga.
 
 **Hábitos**
 - Crear, editar y eliminar hábitos, cada uno con su color.
@@ -28,8 +33,9 @@ Pensada para desplegarse **gratis**: el sitio en **GitHub Pages** (con dominio p
 - Cronograma tipo Gantt con las metas ubicadas en el tiempo.
 
 **Coach de IA**
-- Chat con un coach de hábitos (modelo Llama 3.3 vía **Groq**, gratis).
+- Chat con un coach de hábitos (vía **Groq**, gratis — modelo `openai/gpt-oss-120b`).
 - Antes de responder, el coach consulta tus hábitos, tu racha y tus metas reales (con tu propia sesión, nunca ve datos de otro usuario) para dar consejos concretos, no genéricos.
+- Protegido para que solo cuentas ya activadas puedan usarlo, y con un límite de 40 mensajes por hora por cuenta, para no agotar el presupuesto compartido de la API.
 
 **FitPlan**
 - Calculadora paso a paso: edad, estatura (cm o ft/in), peso (kg o lb), sexo, somatotipo, días de entrenamiento a la semana, objetivo, nivel y equipo disponible.
@@ -92,7 +98,26 @@ Por defecto, Supabase pide confirmar el correo al registrarse. Para pruebas pued
 
 ---
 
-## 2. Configurar el Coach de IA (Groq)
+## 2. Configurar CAPTCHA en el registro (opcional)
+
+Protege la pantalla de "Crear cuenta" contra registros automatizados (por ejemplo, alguien scripteando cuentas nuevas solo para tener más intentos de adivinar un código de activación — el límite de 5 intentos cada 10 minutos es por cuenta). Usa **Cloudflare Turnstile**, que es gratis y no le pide acertijos visuales a la gente (modo "Managed": casi siempre pasa inadvertido).
+
+Si te saltas esta sección, el registro sigue funcionando normal, simplemente sin ese paso extra.
+
+1. Entra a [dash.cloudflare.com](https://dash.cloudflare.com), crea una cuenta gratis (o inicia sesión) y busca **Turnstile** en el buscador del panel (`Ctrl K` / `Cmd K`) — con el panel rediseñado ya no aparece como ítem fijo del menú.
+2. **Add Widget**:
+   - **Widget name**: lo que quieras, ej. "KROTON HABITOS".
+   - **Hostnames**: tu dominio de producción (ej. `app-premium.krotonoficial.com`); agrega también `localhost` si quieres poder probarlo en desarrollo.
+   - **Widget mode**: **Managed** (el recomendado).
+3. Al crearlo te muestra dos claves:
+   - **Site key** → es pública, va en tu `.env` como `VITE_TURNSTILE_SITE_KEY` (y como secret de GitHub Actions para producción, ver sección 5).
+   - **Secret key** → es privada, **nunca** va en el código ni en `.env`. Pégala en **Supabase Dashboard → Authentication → Settings**, en la sección **"Bot and Abuse Protection"**, eligiendo Turnstile como proveedor.
+
+> Si no defines `VITE_TURNSTILE_SITE_KEY`, el formulario de registro simplemente no muestra el widget. La protección real la da el lado de Supabase: si ahí configuraste la Secret key y activaste la protección, cualquier registro sin un token válido se rechaza igual, sea cual sea la causa de que faltara (clave no configurada, bug, etc.).
+
+---
+
+## 3. Configurar el Coach de IA (Groq)
 
 El coach corre en una **Supabase Edge Function** (`supabase/functions/ai-coach`), no en el frontend: así la API key del modelo nunca queda expuesta en el navegador. Se despliega una sola vez desde tu computador con la Supabase CLI (no requiere Docker para esta función).
 
@@ -120,7 +145,7 @@ Con eso, la pestaña **Coach** de la aplicación ya puede responder. Si necesita
 
 ---
 
-## 3. Correr en local
+## 4. Correr en local
 
 ```bash
 # 1. Instalar dependencias
@@ -136,7 +161,7 @@ npm run dev
 
 Abre la dirección que muestra la terminal (por defecto `http://localhost:5173`). Cualquier cambio en el código se refleja al instante.
 
-El `.env` local **solo necesita las variables de Supabase** (`VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`); la key de Groq vive únicamente como secret de Supabase (paso 2), nunca en el frontend.
+El `.env` local **solo necesita las variables de Supabase** (`VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`) más, opcionalmente, `VITE_TURNSTILE_SITE_KEY` (paso 2); la key de Groq vive únicamente como secret de Supabase (paso 3), nunca en el frontend.
 
 Para pasar la pantalla de "Activa tu cuenta" en desarrollo, canjea cualquiera de los códigos generados en el paso 1 (`select code from public.access_codes where user_id is null limit 1;`).
 
@@ -151,20 +176,21 @@ npm run preview   # sirve el build de producción para revisarlo antes de desple
 
 ---
 
-## 4. Desplegar en GitHub Pages
+## 5. Desplegar en GitHub Pages
 
 El repositorio incluye un workflow en [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) que construye y publica la aplicación automáticamente.
 
 **Pasos:**
 
 1. Sube el proyecto a un repositorio de GitHub (la rama debe llamarse `main`).
-2. En el repositorio, ve a **Settings → Secrets and variables → Actions → New repository secret** y crea dos secretos:
+2. En el repositorio, ve a **Settings → Secrets and variables → Actions → New repository secret** y crea estos secretos:
    - `VITE_SUPABASE_URL` con tu Project URL.
    - `VITE_SUPABASE_ANON_KEY` con tu anon key.
+   - `VITE_TURNSTILE_SITE_KEY` con tu Site key de Turnstile (opcional — solo si configuraste el CAPTCHA en la sección 2).
 3. Ve a **Settings → Pages** y, en **Build and deployment → Source**, selecciona **GitHub Actions**.
 4. Haz un push a `main` (o lanza el workflow manualmente desde la pestaña **Actions**). Al terminar, la pestaña Pages mostrará la URL pública.
 
-> Este workflow solo publica el **frontend estático**. La Edge Function del coach (`ai-coach`) vive en Supabase y se despliega aparte con `supabase functions deploy` (ver sección 2) — no hace falta repetirlo en cada push, solo cuando cambies el código de esa función.
+> Este workflow solo publica el **frontend estático**. La Edge Function del coach (`ai-coach`) vive en Supabase y se despliega aparte con `supabase functions deploy` (ver sección 3) — no hace falta repetirlo en cada push, solo cuando cambies el código de esa función.
 
 > El repositorio incluye [`public/CNAME`](public/CNAME) apuntando al dominio propio `app-premium.krotonoficial.com`. Si despliegas en tu propio dominio o en `usuario.github.io`, edita o elimina ese archivo.
 
@@ -188,6 +214,8 @@ Para un dominio propio o publicación en la raíz (`usuario.github.io`), usa `BA
 | --- | --- | --- |
 | `VITE_SUPABASE_URL` | `.env` local **y** secret de GitHub Actions | URL del proyecto Supabase; viaja al navegador (es pública por diseño). |
 | `VITE_SUPABASE_ANON_KEY` | `.env` local **y** secret de GitHub Actions | Clave anónima de Supabase; también pública, la seguridad la da RLS. |
+| `VITE_TURNSTILE_SITE_KEY` | `.env` local **y** secret de GitHub Actions (opcional) | Site key de Cloudflare Turnstile; pública por diseño, pinta el widget del CAPTCHA en el registro. |
+| *(Secret key de Turnstile)* | Panel de Supabase (**Authentication → Settings → Bot and Abuse Protection**) | No es una variable de este proyecto — se configura directo ahí. **Nunca** va en `.env` ni en el código. |
 | `GROQ_API_KEY` | Secret de Supabase (`supabase secrets set`) | Solo la usa la Edge Function `ai-coach`, en el servidor. **Nunca** debe ir en `.env`, en el código del frontend ni en GitHub. |
 
 ---
@@ -208,13 +236,18 @@ Para un dominio propio o publicación en la raíz (`usuario.github.io`), usa `BA
 │   │   └── dates.ts               # utilidades de fechas (semana lun–dom)
 │   ├── auth/
 │   │   ├── auth.ts                # login / registro / sesión / reglas de contraseña
-│   │   └── resetPassword.ts       # pantalla de "nueva contraseña" (link de recuperación)
+│   │   ├── resetPassword.ts       # pantalla de "nueva contraseña" (link de recuperación)
+│   │   └── turnstile.ts           # widget de CAPTCHA (Cloudflare Turnstile) en el registro
 │   ├── access/
 │   │   ├── api.ts                 # consultar/canjear el código de activación
 │   │   └── gate.ts                # pantalla "Activa tu cuenta" (código de 6 caracteres)
+│   ├── agenda/
+│   │   ├── api.ts                 # CRUD de pendientes + registros de cumplimiento por ocurrencia
+│   │   ├── occurrences.ts         # calcula en qué días cae cada pendiente (una vez/diaria/semanal)
+│   │   └── agendaView.ts          # vista del día + lista de gestión "Mis pendientes"
 │   ├── habits/
 │   │   ├── api.ts                 # acceso a datos (CRUD + registros)
-│   │   └── dashboard.ts           # tablero: subnav Hábitos/FitPlan, pestañas, tabla, gráficas y métricas
+│   │   └── dashboard.ts           # tablero: subnav Hábitos/FitPlan, pestañas (Agenda/Hábitos/Metas/Coach), tabla, gráficas y métricas
 │   ├── goals/
 │   │   ├── api.ts                 # CRUD de metas
 │   │   ├── board.ts               # tablero kanban por plazo
@@ -267,14 +300,15 @@ Para un dominio propio o publicación en la raíz (`usuario.github.io`), usa `BA
 
 ## Cómo usar la aplicación
 
-1. Crea una cuenta o inicia sesión.
+1. Crea una cuenta (si configuraste CAPTCHA, hay que completarlo) o inicia sesión.
 2. **Activa tu cuenta**: introduce el código de 6 caracteres pegado en la tirilla de la prenda KROTON que compraste. Este paso solo aparece una vez; después la cuenta queda activada para siempre.
-3. En la pestaña **Hábitos**: pulsa **Hábito** para agregar el primero, elige un color y marca las casillas de los días que lo cumpliste. Revisa tu racha, el mapa de calor y el % por hábito en las tarjetas de métricas.
-4. En la pestaña **Metas**: crea metas de corto, mediano o largo plazo con fecha de inicio y fin elegidas en el calendario; visualízalas en el cronograma tipo Gantt.
-5. En la pestaña **Coach**: pregúntale al coach cómo vas, pídele un consejo o su opinión sobre tus metas — responde con tus datos reales.
-6. En la sección **FitPlan**: ingresa tus datos (edad, estatura, peso, objetivo, nivel, equipo) para ver tu IMC y demás métricas, y genera un prompt para pedirle a una IA tu plan de entrenamiento y nutrición.
-7. Desde el ícono de configuración (⚙): descarga tus metas en PDF o elimina tu cuenta si lo necesitas.
-8. Debajo del tablero, el carrusel **Tienda Kroton** enlaza directo a la tienda oficial.
+3. La app abre por defecto en la pestaña **Agenda**: agenda pendientes con hora y repetición (una vez / diaria / días específicos), navega entre días con las flechas y márcalos como hechos. En "Mis pendientes" puedes editar o eliminar cualquiera, sin importar el día en que caiga.
+4. En la pestaña **Hábitos**: pulsa **Hábito** para agregar el primero, elige un color y marca las casillas de los días que lo cumpliste (solo se puede marcar hoy o ayer). Revisa tu racha, el mapa de calor y el % por hábito en las tarjetas de métricas.
+5. En la pestaña **Metas**: crea metas de corto, mediano o largo plazo con fecha de inicio y fin elegidas en el calendario; visualízalas en el cronograma tipo Gantt.
+6. En la pestaña **Coach**: pregúntale al coach cómo vas, pídele un consejo o su opinión sobre tus metas — responde con tus datos reales.
+7. En la sección **FitPlan**: ingresa tus datos (edad, estatura, peso, objetivo, nivel, equipo) para ver tu IMC y demás métricas, y genera un prompt para pedirle a una IA tu plan de entrenamiento y nutrición.
+8. Desde el ícono de configuración (⚙): descarga tus metas en PDF o elimina tu cuenta si lo necesitas.
+9. Debajo del tablero, el carrusel **Tienda Kroton** (con scroll infinito en ambas direcciones) enlaza directo a la tienda oficial.
 
 ---
 

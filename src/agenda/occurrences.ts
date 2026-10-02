@@ -24,11 +24,6 @@ export function occurrencesForDate(items: AgendaItem[], dateISO: string): Agenda
     .sort((a, b) => a.time_of_day.slice(0, 5).localeCompare(b.time_of_day.slice(0, 5)));
 }
 
-/** Para una vista semanal: ocurrencias agrupadas por fecha. */
-export function occurrencesByDate(items: AgendaItem[], dateISOs: string[]): Map<string, AgendaItem[]> {
-  return new Map(dateISOs.map((d) => [d, occurrencesForDate(items, d)]));
-}
-
 const SHORT_DAY_NAMES = DAY_NAMES.map((name) => name.slice(0, 3));
 
 /** Resumen legible de la regla de repetición, p. ej. "Lun, Mié" o "Todos los días". */

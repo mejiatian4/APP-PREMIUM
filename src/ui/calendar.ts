@@ -1,5 +1,5 @@
 import { el, clear } from './dom';
-import { DAY_LABELS } from '../lib/dates';
+import { DAY_LABELS, capitalize, mondayFirstDay } from '../lib/dates';
 import { icons } from './icons';
 
 export interface DatePicker {
@@ -14,8 +14,7 @@ function pad(n: number): string {
 }
 
 function monthYearLabel(year: number, month: number): string {
-  const label = new Date(year, month, 1).toLocaleDateString('es', { month: 'long', year: 'numeric' });
-  return label.charAt(0).toUpperCase() + label.slice(1);
+  return capitalize(new Date(year, month, 1).toLocaleDateString('es', { month: 'long', year: 'numeric' }));
 }
 
 /**
@@ -71,7 +70,7 @@ export function createDatePicker(opts: {
     monthLabel.textContent = monthYearLabel(viewYear, viewMonth);
     clear(grid);
 
-    const firstWeekday = (new Date(viewYear, viewMonth, 1).getDay() + 6) % 7; // lunes = 0
+    const firstWeekday = mondayFirstDay(new Date(viewYear, viewMonth, 1));
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
     const today = new Date();
     const todayISO = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;

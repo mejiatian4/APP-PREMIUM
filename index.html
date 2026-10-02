@@ -60,6 +60,10 @@
       <strong class="footer-brand">KROTON OFICIAL · APLICACIÓN PREMIUM</strong>
     </footer>
 
+    <!-- CAPTCHA del registro (Cloudflare Turnstile). render=explicit + onload
+         para controlar nosotros cuándo y dónde se pinta el widget, en vez de
+         que se monte solo en cualquier div con la clase por defecto. -->
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" defer></script>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

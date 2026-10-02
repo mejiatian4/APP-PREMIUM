@@ -75,6 +75,19 @@ export const DAY_NAMES = [
   'Domingo',
 ];
 
+/** Pone en mayúscula la primera letra (p. ej. para nombres de mes/día en español). */
+export function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Formatea 'YYYY-MM-DD' como "15 ago 2026", sin desfases de zona horaria. */
+export function formatShortDate(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d)
+    .toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })
+    .replace('.', '');
+}
+
 /** Rango legible de la semana, p. ej. "23 – 29 jun 2026". */
 export function formatWeekRange(monday: Date): string {
   const days = weekDays(monday);

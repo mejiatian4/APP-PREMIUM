@@ -36,10 +36,14 @@ jobs:
       - name: Construir
         run: npm run build
         env:
-          # Estos dos valores se configuran en:
+          # Estos valores se configuran en:
           # Settings -> Secrets and variables -> Actions -> New repository secret
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # Opcional (CAPTCHA del registro): si no se configura este secret,
+          # el build sale vacío y el formulario simplemente no muestra el
+          # widget — ver "Configurar CAPTCHA" en el README.
+          VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
           # Sin BASE_PATH: vite.config.ts usa su default '/', correcto para
           # servir desde la raíz de app-premium.krotonoficial.com.
 

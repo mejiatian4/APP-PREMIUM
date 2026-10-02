@@ -39,15 +39,23 @@ export async function createAgendaItem(userId: string, fields: AgendaItemFields)
   return data;
 }
 
-/** Actualiza campos de un ítem de agenda. */
-export async function updateAgendaItem(id: string, fields: Partial<AgendaItemFields>): Promise<void> {
-  const { error } = await supabase.from('agenda_items').update(fields).eq('id', id);
+/**
+ * Actualiza campos de un ítem de agenda.
+ * El filtro por `userId` (además de `id`) es puro cinturón y tirantes: RLS ya
+ * impide tocar ítems ajenos, esto solo evita depender de una sola capa.
+ */
+export async function updateAgendaItem(
+  id: string,
+  userId: string,
+  fields: Partial<AgendaItemFields>,
+): Promise<void> {
+  const { error } = await supabase.from('agenda_items').update(fields).eq('id', id).eq('user_id', userId);
   if (error) throw error;
 }
 
 /** Elimina un ítem de agenda. Sus registros se borran en cascada (ver schema.sql). */
-export async function deleteAgendaItem(id: string): Promise<void> {
-  const { error } = await supabase.from('agenda_items').delete().eq('id', id);
+export async function deleteAgendaItem(id: string, userId: string): Promise<void> {
+  const { error } = await supabase.from('agenda_items').delete().eq('id', id).eq('user_id', userId);
   if (error) throw error;
 }
 
@@ -91,7 +99,8 @@ export async function setAgendaCompletion(
       .from('agenda_logs')
       .delete()
       .eq('agenda_item_id', agendaItemId)
-      .eq('occurrence_date', occurrenceDateISO);
+      .eq('occurrence_date', occurrenceDateISO)
+      .eq('user_id', userId);
     if (error) throw error;
   }
 }

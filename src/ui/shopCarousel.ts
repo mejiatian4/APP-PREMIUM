@@ -1,4 +1,4 @@
-/** Carrusel de "Tienda Kroton": avanza solo cada 5s y hace loop infinito. */
+/** Carrusel de "Tienda Kroton": avanza solo cada 5s y hace loop infinito en ambas direcciones. */
 export function initShopCarousel(): void {
   const track = document.getElementById('shopCarouselTrack');
   const prevBtn = document.querySelector<HTMLButtonElement>('.shop-carousel__nav--prev');
@@ -13,15 +13,20 @@ export function initShopCarousel(): void {
   const originalItems = Array.from(track.children) as HTMLElement[];
   if (originalItems.length === 0) return;
 
-  // Duplicamos los ítems una vez: al llegar al bloque clonado saltamos sin
-  // animación al punto equivalente del bloque real, así el scroll nunca
-  // "se acaba" y el carrusel se siente infinito.
-  originalItems.forEach((item) => {
-    const clone = item.cloneNode(true) as HTMLElement;
-    clone.setAttribute('aria-hidden', 'true');
-    clone.querySelectorAll('a').forEach((a) => a.setAttribute('tabindex', '-1'));
-    track.appendChild(clone);
-  });
+  // Clonamos los ítems DOS veces —uno antes y otro después del bloque
+  // real— para poder hacer loop infinito en las dos direcciones: siempre
+  // hay contenido "de sobra" a cada lado para seguir scrolleando sin
+  // toparse con un límite, sea con las flechas, el mouse o swipe.
+  const makeClones = (): HTMLElement[] =>
+    originalItems.map((item) => {
+      const clone = item.cloneNode(true) as HTMLElement;
+      clone.setAttribute('aria-hidden', 'true');
+      clone.querySelectorAll('a').forEach((a) => a.setAttribute('tabindex', '-1'));
+      return clone;
+    });
+
+  track.append(...makeClones());
+  track.prepend(...makeClones());
 
   const itemStep = (): number => {
     const item = track.children[0] as HTMLElement;
@@ -31,6 +36,10 @@ export function initShopCarousel(): void {
   };
   const loopWidth = (): number => itemStep() * originalItems.length;
 
+  // Arranca mostrando el bloque real (el del medio), con un bloque clonado
+  // completo disponible a cada lado para scrollear.
+  track.scrollLeft = loopWidth();
+
   // Esperamos a que el scroll (animado o por swipe) se asiente antes de
   // reubicar, para no pelear con la animación nativa en curso.
   let settleTimer = 0;
@@ -38,7 +47,8 @@ export function initShopCarousel(): void {
     window.clearTimeout(settleTimer);
     settleTimer = window.setTimeout(() => {
       const width = loopWidth();
-      if (track.scrollLeft >= width - 1) track.scrollLeft -= width;
+      if (track.scrollLeft <= 1) track.scrollLeft += width;
+      else if (track.scrollLeft >= width * 2 - 1) track.scrollLeft -= width;
     }, 120);
   });
 

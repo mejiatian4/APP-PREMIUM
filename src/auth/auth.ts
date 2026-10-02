@@ -4,6 +4,7 @@ import { icons } from '../ui/icons';
 import { toast, errorMessage } from '../ui/toast';
 import { stopInactivityWatch } from '../lib/inactivity';
 import { markIntentionalSignIn, consumeIntentionalSignIn } from '../lib/authIntent';
+import { mountTurnstile, type TurnstileWidget } from './turnstile';
 
 export async function signOut(message = 'Has cerrado tu sesión.'): Promise<void> {
   stopInactivityWatch();
@@ -190,6 +191,12 @@ export function renderAuthScreen(root: HTMLElement): void {
     confirmHint,
   ]);
 
+  // CAPTCHA del registro (Cloudflare Turnstile). Si no hay site key
+  // configurada, mountTurnstile() no pinta nada y turnstileWidget queda en
+  // null — el registro sigue funcionando igual, sin ese paso.
+  let turnstileWidget: TurnstileWidget | null = null;
+  const turnstileContainer = el('div', { class: 'field turnstile-field' });
+
   function updateConfirmHint(): void {
     if (mode !== 'signup' || !confirmPassword.value) {
       confirmHint.textContent = '';
@@ -227,6 +234,7 @@ export function renderAuthScreen(root: HTMLElement): void {
       passwordFieldDiv.style.display = '';
       forgotLink.style.display = '';
       confirmField.style.display = 'none';
+      turnstileContainer.style.display = 'none';
       confirmPassword.value = '';
       updateConfirmHint();
     } else if (mode === 'signup') {
@@ -242,6 +250,7 @@ export function renderAuthScreen(root: HTMLElement): void {
       passwordFieldDiv.style.display = '';
       forgotLink.style.display = 'none';
       confirmField.style.display = '';
+      turnstileContainer.style.display = '';
     } else {
       title.textContent = 'Recupera tu contraseña';
       subtitle.textContent = 'Ingresa el correo de tu cuenta y te enviaremos un enlace para restablecerla.';
@@ -251,6 +260,7 @@ export function renderAuthScreen(root: HTMLElement): void {
       passwordFieldDiv.style.display = 'none';
       forgotLink.style.display = 'none';
       confirmField.style.display = 'none';
+      turnstileContainer.style.display = 'none';
     }
   }
 
@@ -268,6 +278,7 @@ export function renderAuthScreen(root: HTMLElement): void {
     passwordFieldDiv,
     forgotLink,
     confirmField,
+    turnstileContainer,
     submit,
   ]);
 
@@ -321,6 +332,10 @@ export function renderAuthScreen(root: HTMLElement): void {
         toast('Las contraseñas no coinciden.', 'error');
         return;
       }
+      if (turnstileWidget && !turnstileWidget.getToken()) {
+        toast('Completa la verificación de seguridad para continuar.', 'error');
+        return;
+      }
     }
 
     submit.setAttribute('disabled', 'true');
@@ -349,6 +364,7 @@ export function renderAuthScreen(root: HTMLElement): void {
             // en desarrollo, GitHub Pages en producción), en vez de depender
             // del "Site URL" fijo configurado en el panel de Supabase.
             emailRedirectTo: `${window.location.origin}${import.meta.env.BASE_URL}`,
+            captchaToken: turnstileWidget?.getToken() ?? undefined,
           },
         });
         if (error) throw error;
@@ -363,6 +379,9 @@ export function renderAuthScreen(root: HTMLElement): void {
       consumeIntentionalSignIn(); // el login falló: no dejar la marca pegada para el próximo evento de sesión.
       toast(authErrorMessage(err, 'No se pudo completar. Verifica tus datos.'), 'error');
     } finally {
+      // El token de Turnstile es de un solo uso: pedimos uno nuevo para el
+      // próximo intento, sea que este haya fallado o terminado bien.
+      if (mode === 'signup') turnstileWidget?.reset();
       submit.removeAttribute('disabled');
       submit.textContent = original;
     }
@@ -385,4 +404,10 @@ export function renderAuthScreen(root: HTMLElement): void {
 
   root.append(el('div', { class: 'auth' }, [card]));
   paint();
+
+  // Se monta después de estar en el DOM: Turnstile necesita el contenedor
+  // ya conectado a la página para pintar el widget ahí.
+  void mountTurnstile(turnstileContainer).then((widget) => {
+    turnstileWidget = widget;
+  });
 }

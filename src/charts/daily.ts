@@ -1,9 +1,5 @@
 import Chart from 'chart.js/auto';
-
-/** Lee una variable CSS del :root para que las gráficas sigan el tema. */
-function cssVar(name: string): string {
-  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-}
+import { cssVar } from './theme';
 
 // Plugin que dibuja el conteo y el porcentaje en el centro de la dona.
 const centerText = {

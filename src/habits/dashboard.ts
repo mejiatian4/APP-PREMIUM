@@ -32,7 +32,7 @@ import { renderGoalsBoard } from '../goals/board';
 import { renderAgendaView } from '../agenda/agendaView';
 import { openSettingsPanel } from '../settings/panel';
 import { createQuoteCard } from '../ui/quotes';
-import { renderCoachChat } from '../coach/chat';
+import { mountCoachWidget } from '../coach/widget';
 import { renderFitPlan } from '../fitplan/render';
 
 const key = (habitId: string, dateISO: string) => `${habitId}|${dateISO}`;
@@ -84,27 +84,23 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   const navHabitos = el('button', { class: 'app-nav__item app-nav__item--active', type: 'button' }, ['Hábitos']);
   const navFitplan = el('button', { class: 'app-nav__item', type: 'button' }, ['FitPlan']);
 
-  // Submenú de acceso rápido a Agenda/Hábitos/Metas/Coach: se despliega al
+  // Submenú de acceso rápido a Agenda/Hábitos/Metas: se despliega al
   // pasar el mouse por "Hábitos" (hover, en CSS) o al tocarlo en pantallas
-  // táctiles (JS, más abajo). Las 4 vistas ya viven armadas en el DOM —ver
+  // táctiles (JS, más abajo). Las 3 vistas ya viven armadas en el DOM —ver
   // showView— así que elegir una aquí no vuelve a pedir datos si ya se
-  // habían cargado antes: solo cambia cuál se muestra.
+  // habían cargado antes: solo cambia cuál se muestra. El Coach no está
+  // aquí: ahora es el botón flotante de abajo a la derecha (ver
+  // mountCoachWidget), accesible desde cualquier sección.
   const quickAgenda = el('button', { class: 'app-nav__dropdown-item', type: 'button' }, ['Agenda']);
   const quickHabits = el('button', { class: 'app-nav__dropdown-item', type: 'button' }, ['Hábitos']);
   const quickGoals = el('button', { class: 'app-nav__dropdown-item', type: 'button' }, ['Metas']);
-  const quickCoach = el('button', { class: 'app-nav__dropdown-item', type: 'button' }, ['Coach']);
-  const habitosDropdown = el('div', { class: 'app-nav__dropdown' }, [
-    quickAgenda,
-    quickHabits,
-    quickGoals,
-    quickCoach,
-  ]);
+  const habitosDropdown = el('div', { class: 'app-nav__dropdown' }, [quickAgenda, quickHabits, quickGoals]);
   const navHabitosWrap = el('div', { class: 'app-nav__item-wrap' }, [navHabitos, habitosDropdown]);
 
   function closeHabitosDropdown(): void {
     navHabitosWrap.classList.remove('app-nav__item-wrap--open');
   }
-  function goToSubtab(view: 'habits' | 'goals' | 'agenda' | 'coach'): void {
+  function goToSubtab(view: 'habits' | 'goals' | 'agenda'): void {
     showAppSection('habitos');
     showView(view);
     closeHabitosDropdown();
@@ -112,7 +108,6 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   quickAgenda.addEventListener('click', () => goToSubtab('agenda'));
   quickHabits.addEventListener('click', () => goToSubtab('habits'));
   quickGoals.addEventListener('click', () => goToSubtab('goals'));
-  quickCoach.addEventListener('click', () => goToSubtab('coach'));
 
   // En mouse, el hover ya despliega el submenú (CSS) y el clic navega
   // directo a la última subpestaña vista, como antes. En pantallas táctiles
@@ -269,8 +264,8 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   const tableWrap = el('div', { class: 'table-wrap' });
   const weekSection = el('section', { class: 'week' }, [weekNav.element, tableWrap]);
 
-  // ---- Pestañas: Agenda / Hábitos / Metas / Coach ----
-  // Las cuatro arrancan ocultas/sin cargar por igual; showView('agenda') más
+  // ---- Pestañas: Agenda / Hábitos / Metas ----
+  // Las tres arrancan ocultas/sin cargar por igual; showView('agenda') más
   // abajo decide cuál se ve primero y dispara su carga de datos.
   const habitsView = el('div', { class: 'view', style: 'display:none' }, [
     createQuoteCard(),
@@ -280,33 +275,28 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
   ]);
   const goalsView = el('div', { class: 'view', style: 'display:none' });
   const agendaView = el('div', { class: 'view', style: 'display:none' });
-  const coachView = el('div', { class: 'view', style: 'display:none' });
 
-  // La navegación entre estas 4 vistas vive solo en el submenú de "Hábitos"
+  // La navegación entre estas 3 vistas vive solo en el submenú de "Hábitos"
   // (ver navHabitosWrap más arriba); aquí solo queda un título fijo que dice
   // en cuál estás.
-  const VIEW_TITLES: Record<'habits' | 'goals' | 'agenda' | 'coach', string> = {
+  const VIEW_TITLES: Record<'habits' | 'goals' | 'agenda', string> = {
     agenda: 'Agenda',
     habits: 'Hábitos',
     goals: 'Metas',
-    coach: 'Coach',
   };
   const subsectionTitle = el('h2', { class: 'subsection-title' }, ['Agenda']);
 
   let habitsLoaded = false;
   let goalsLoaded = false;
   let agendaLoaded = false;
-  let coachLoaded = false;
-  function showView(view: 'habits' | 'goals' | 'agenda' | 'coach'): void {
+  function showView(view: 'habits' | 'goals' | 'agenda'): void {
     habitsView.style.display = view === 'habits' ? '' : 'none';
     goalsView.style.display = view === 'goals' ? '' : 'none';
     agendaView.style.display = view === 'agenda' ? '' : 'none';
-    coachView.style.display = view === 'coach' ? '' : 'none';
     subsectionTitle.textContent = VIEW_TITLES[view];
     quickHabits.classList.toggle('app-nav__dropdown-item--active', view === 'habits');
     quickGoals.classList.toggle('app-nav__dropdown-item--active', view === 'goals');
     quickAgenda.classList.toggle('app-nav__dropdown-item--active', view === 'agenda');
-    quickCoach.classList.toggle('app-nav__dropdown-item--active', view === 'coach');
     if (view === 'habits' && !habitsLoaded) {
       habitsLoaded = true;
       void loadWeek();
@@ -319,20 +309,12 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
       agendaLoaded = true;
       void renderAgendaView(agendaView, userId);
     }
-    if (view === 'coach' && !coachLoaded) {
-      coachLoaded = true;
-      renderCoachChat(coachView);
-    }
   }
 
-  const main = el('main', { class: 'dashboard' }, [
-    subsectionTitle,
-    habitsView,
-    goalsView,
-    agendaView,
-    coachView,
-  ]);
-  root.append(el('div', { class: 'app' }, [topbar, appNav, headerHero, main, fitplanSection]));
+  const main = el('main', { class: 'dashboard' }, [subsectionTitle, habitsView, goalsView, agendaView]);
+  const appEl = el('div', { class: 'app' }, [topbar, appNav, headerHero, main, fitplanSection]);
+  root.append(appEl);
+  mountCoachWidget();
 
   // Los canvas ya están en el DOM: ahora sí se pueden crear las gráficas.
   const dailyChart = new DailyChart(dailyCanvas);

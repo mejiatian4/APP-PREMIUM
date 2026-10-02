@@ -14,10 +14,10 @@
 //
 // La función exige un usuario autenticado (verifica el JWT que llega en el
 // header Authorization) para que nadie pueda usarla sin haber iniciado
-// sesión en la app. Antes de llamar al modelo, consulta los hábitos, registros
-// y metas del propio usuario (con su mismo token, así que RLS aplica igual
-// que en el cliente: jamás puede ver datos de otra persona) y arma un resumen
-// que se le da al modelo como contexto, para que responda con datos reales.
+// sesión en la app. Antes de llamar al modelo, consulta los hábitos, registros,
+// metas y agenda del propio usuario (con su mismo token, así que RLS aplica
+// igual que en el cliente: jamás puede ver datos de otra persona) y arma un
+// resumen que se le da al modelo como contexto, para que responda con datos reales.
 
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -33,10 +33,11 @@ const SYSTEM_PROMPT =
   'inspirado en la filosofía estoica (disciplina, enfocarse en lo que depende de uno, constancia ' +
   'diaria) pero sin sonar acartonado ni repetitivo. Das consejos prácticos y concretos, nunca genéricos ' +
   'ni de relleno. Mantén las respuestas breves (3 a 5 líneas) salvo que te pidan más detalle. Antes de ' +
-  'cada mensaje del usuario recibes un bloque "CONTEXTO REAL DEL USUARIO" con sus hábitos, rachas y ' +
-  'metas actuales: básate en esos datos para responder y para dar consejos concretos sobre ESAS metas o ' +
-  'hábitos en particular. Nunca inventes números, fechas o metas que no estén en ese contexto. Si algo ' +
-  'que te preguntan no aparece ahí, dilo con naturalidad en vez de inventarlo.';
+  'cada mensaje del usuario recibes un bloque "CONTEXTO REAL DEL USUARIO" con sus hábitos, rachas, ' +
+  'metas y agenda (pendientes de hoy y su rutina configurada) actuales: básate en esos datos para ' +
+  'responder y para dar consejos concretos sobre ESAS metas, hábitos o pendientes en particular. Nunca ' +
+  'inventes números, fechas o metas que no estén en ese contexto. Si algo que te preguntan no aparece ' +
+  'ahí, dilo con naturalidad en vez de inventarlo.';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
@@ -75,6 +76,21 @@ interface GoalRow {
   term: 'short' | 'medium' | 'long';
   start_date: string | null;
   end_date: string | null;
+  completed: boolean;
+}
+
+interface AgendaItemRow {
+  id: string;
+  title: string;
+  time_of_day: string; // 'HH:MM:SS'
+  recurrence: 'once' | 'daily' | 'weekly';
+  weekdays: number[]; // 0=lunes..6=domingo (igual que en el cliente, ver src/lib/dates.ts)
+  start_date: string;
+  end_date: string | null;
+}
+
+interface AgendaLogRow {
+  agenda_item_id: string;
   completed: boolean;
 }
 
@@ -130,17 +146,62 @@ function formatGoals(goals: GoalRow[]): string {
   return parts.join('\n');
 }
 
+// 0=lunes..6=domingo, calculado en UTC para que no dependa de la zona
+// horaria del servidor (mismo criterio que addDaysISO/daysBetweenISO).
+function mondayFirstDayISO(dateISO: string): number {
+  const nativeDay = new Date(`${dateISO}T00:00:00Z`).getUTCDay(); // 0=domingo..6=sábado
+  return (nativeDay + 6) % 7;
+}
+
+function occursOnISO(item: AgendaItemRow, dateISO: string): boolean {
+  if (dateISO < item.start_date) return false;
+  if (item.end_date && dateISO > item.end_date) return false;
+  if (item.recurrence === 'once') return dateISO === item.start_date;
+  if (item.recurrence === 'daily') return true;
+  return item.weekdays.includes(mondayFirstDayISO(dateISO));
+}
+
+const WEEKDAY_SHORT = ['lun', 'mar', 'mié', 'jue', 'vie', 'sáb', 'dom'];
+
+function describeAgendaRecurrence(item: AgendaItemRow): string {
+  if (item.recurrence === 'daily') return 'todos los días';
+  if (item.recurrence === 'weekly') {
+    return [...item.weekdays].sort((a, b) => a - b).map((d) => WEEKDAY_SHORT[d]).join(', ');
+  }
+  return 'una vez';
+}
+
+function formatAgenda(items: AgendaItemRow[], todayLogs: AgendaLogRow[], todayISO: string): string {
+  if (items.length === 0) return 'Todavía no tiene nada agendado.';
+
+  const doneToday = new Set(todayLogs.filter((l) => l.completed).map((l) => l.agenda_item_id));
+  const sortedByTime = [...items].sort((a, b) => a.time_of_day.localeCompare(b.time_of_day));
+
+  const todayItems = sortedByTime.filter((it) => occursOnISO(it, todayISO));
+  const todayLines = todayItems.length
+    ? todayItems
+        .map((it) => `  · ${it.time_of_day.slice(0, 5)} "${it.title}" — ${doneToday.has(it.id) ? 'hecho' : 'pendiente'}`)
+        .join('\n')
+    : '  · Nada agendado para hoy.';
+
+  const allLines = sortedByTime
+    .map((it) => `  · ${it.time_of_day.slice(0, 5)} "${it.title}" (${describeAgendaRecurrence(it)})`)
+    .join('\n');
+
+  return `Hoy:\n${todayLines}\n\nRutina configurada (todos los pendientes):\n${allLines}`;
+}
+
 /**
- * Trae hábitos, registros recientes y metas del usuario (con su propio
- * token, respetando RLS) y arma un resumen en texto plano para dárselo al
- * modelo como contexto. Si algo falla, devuelve un contexto de aviso en vez
- * de tumbar la conversación entera.
+ * Trae hábitos, registros recientes, metas y agenda del usuario (con su
+ * propio token, respetando RLS) y arma un resumen en texto plano para
+ * dárselo al modelo como contexto. Si algo falla, devuelve un contexto de
+ * aviso en vez de tumbar la conversación entera.
  */
 async function buildUserContext(supabaseClient: SupabaseClient, todayISO: string): Promise<string> {
   const windowStartISO = addDaysISO(todayISO, -(LOOKBACK_DAYS - 1));
   const last30StartISO = addDaysISO(todayISO, -29);
 
-  const [habitsRes, logsRes, goalsRes] = await Promise.all([
+  const [habitsRes, logsRes, goalsRes, agendaItemsRes, agendaLogsRes] = await Promise.all([
     supabaseClient.from('habits').select('id, name, created_at').order('position', { ascending: true }),
     supabaseClient
       .from('habit_logs')
@@ -151,16 +212,30 @@ async function buildUserContext(supabaseClient: SupabaseClient, todayISO: string
       .from('goals')
       .select('title, description, term, start_date, end_date, completed')
       .order('created_at', { ascending: true }),
+    supabaseClient
+      .from('agenda_items')
+      .select('id, title, time_of_day, recurrence, weekdays, start_date, end_date')
+      .order('created_at', { ascending: true }),
+    supabaseClient.from('agenda_logs').select('agenda_item_id, completed').eq('occurrence_date', todayISO),
   ]);
 
-  if (habitsRes.error || logsRes.error || goalsRes.error) {
-    console.error('Context fetch error:', habitsRes.error, logsRes.error, goalsRes.error);
+  if (habitsRes.error || logsRes.error || goalsRes.error || agendaItemsRes.error || agendaLogsRes.error) {
+    console.error(
+      'Context fetch error:',
+      habitsRes.error,
+      logsRes.error,
+      goalsRes.error,
+      agendaItemsRes.error,
+      agendaLogsRes.error,
+    );
     return 'No se pudo cargar el contexto del usuario en este momento (falla temporal). Dile que lo intente de nuevo si necesitas sus datos reales.';
   }
 
   const habits = (habitsRes.data ?? []) as HabitRow[];
   const logs = (logsRes.data ?? []) as LogRow[];
   const goals = (goalsRes.data ?? []) as GoalRow[];
+  const agendaItems = (agendaItemsRes.data ?? []) as AgendaItemRow[];
+  const agendaLogs = (agendaLogsRes.data ?? []) as AgendaLogRow[];
 
   // Días con al menos un hábito cumplido (para racha y % del mes).
   const activeDays = new Set<string>();
@@ -221,7 +296,8 @@ async function buildUserContext(supabaseClient: SupabaseClient, todayISO: string
     `  · Cumplimiento de este mes: ${monthPct}%.\n\n` +
     `Hábitos (% de cumplimiento, últimos 30 días):\n` +
     `${habits.length ? habitLines.join('\n') : '  · Todavía no tiene hábitos creados.'}\n\n` +
-    `Metas:\n${formatGoals(goals)}`
+    `Metas:\n${formatGoals(goals)}\n\n` +
+    `Agenda:\n${formatAgenda(agendaItems, agendaLogs, todayISO)}`
   );
 }
 

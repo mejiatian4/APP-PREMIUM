@@ -5,19 +5,23 @@ import { sendCoachMessage } from './api';
 import type { ChatMessage } from '../lib/types';
 
 const WELCOME =
-  'Hola, soy tu coach de KROTON HABITOS. Ya puedo ver tus hábitos, tu racha y tus metas reales — pregúntame lo que quieras sobre ellos, o algo de disciplina y constancia en general.';
+  'Hola, soy tu coach de KROTON HABITOS. Ya puedo ver tus hábitos, tu racha, tus metas y tu agenda reales — pregúntame lo que quieras sobre ellos, o algo de disciplina y constancia en general.';
 
 const SUGGESTIONS = [
+  '¿Qué tengo agendado hoy?',
   '¿Cómo voy esta semana?',
   '¿Qué opinas de mis metas?',
   'Ayúdame a no romper mi racha',
-  'Dame un consejo para hoy',
 ];
 
 const INPUT_MAX_HEIGHT = 120;
 
-/** Pinta el chat con el coach de IA. Se monta una sola vez por sesión (lazy). */
-export function renderCoachChat(root: HTMLElement): void {
+/**
+ * Pinta el chat con el coach de IA dentro del panel flotante. Se monta una
+ * sola vez por sesión (lazy, al abrir el panel la primera vez). `onClose` se
+ * engancha al botón ✕ del encabezado.
+ */
+export function renderCoachChat(root: HTMLElement, onClose: () => void): void {
   clear(root);
 
   // Historial en memoria: se manda al backend para que el coach tenga contexto
@@ -63,15 +67,23 @@ export function renderCoachChat(root: HTMLElement): void {
   });
   input.addEventListener('input', () => autoGrow());
 
+  const closeBtn = el(
+    'button',
+    { class: 'btn btn--icon chat__close', type: 'button', 'aria-label': 'Cerrar chat' },
+    [icons.close()],
+  );
+  closeBtn.addEventListener('click', onClose);
+
   const header = el('div', { class: 'chat__head' }, [
     el('span', { class: 'chat__head-mark', 'aria-hidden': 'true' }, [icons.sparkles()]),
     el('div', { class: 'chat__head-body' }, [
       el('h2', { class: 'card__title chat__head-title' }, ['Coach']),
       el('p', { class: 'chat__head-subtitle' }, ['Tu guía de constancia, disponible cuando la necesites']),
     ]),
+    closeBtn,
   ]);
 
-  const card = el('section', { class: 'card card--chat' }, [header, messages, suggestions, form]);
+  const card = el('section', { class: 'card--chat' }, [header, messages, suggestions, form]);
 
   root.append(card);
   appendMessage('assistant', WELCOME);

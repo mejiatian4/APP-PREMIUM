@@ -5,6 +5,7 @@ import { toast, errorMessage } from '../ui/toast';
 import { stopInactivityWatch } from '../lib/inactivity';
 import { markIntentionalSignIn, consumeIntentionalSignIn } from '../lib/authIntent';
 import { mountTurnstile, type TurnstileWidget } from './turnstile';
+import { unmountCoachWidget } from '../coach/widget';
 
 export async function signOut(message = 'Has cerrado tu sesión.'): Promise<void> {
   stopInactivityWatch();
@@ -149,6 +150,10 @@ type Mode = 'signin' | 'signup' | 'forgot';
  */
 export function renderAuthScreen(root: HTMLElement): void {
   clear(root);
+  // El botón flotante del coach vive fuera de #app (ver coach/widget.ts) para
+  // poder flotar por encima de todo; como no se limpia solo con clear(root),
+  // hay que quitarlo a mano al volver a esta pantalla (p. ej. al cerrar sesión).
+  unmountCoachWidget();
 
   let mode: Mode = 'signin';
 

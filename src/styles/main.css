@@ -394,13 +394,13 @@ button {
   opacity: 0.85;
 }
 
-/* ---------------- Coach de IA ---------------- */
+/* ---------------- Coach de IA (panel flotante) ---------------- */
 .card--chat {
   display: flex;
   flex-direction: column;
   gap: 18px;
   padding: 24px;
-  min-height: 560px;
+  height: 100%;
 }
 .chat__head {
   display: flex;
@@ -408,6 +408,10 @@ button {
   gap: 14px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border);
+}
+.chat__close {
+  margin-left: auto;
+  flex: none;
 }
 .chat__head-mark {
   flex: none;
@@ -443,7 +447,6 @@ button {
   flex-direction: column;
   gap: 16px;
   overflow-y: auto;
-  max-height: 440px;
   padding: 2px 6px 2px 2px;
 }
 .chat__row {
@@ -599,6 +602,104 @@ button {
 .chat__send svg {
   width: 16px;
   height: 16px;
+}
+
+/* ---------------- Botón flotante del coach ---------------- */
+.coach-widget {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 120;
+}
+.coach-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+.coach-widget--open .coach-backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+.coach-fab {
+  position: relative;
+  z-index: 2;
+  width: 60px;
+  height: 60px;
+  border: none;
+  border-radius: 50%;
+  background: var(--grad-btn);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 28px rgba(252, 184, 39, 0.35), 0 2px 10px rgba(0, 0, 0, 0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.coach-fab:hover {
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: 0 14px 34px rgba(252, 184, 39, 0.45), 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+.coach-fab:active {
+  transform: translateY(0) scale(0.96);
+}
+.coach-fab__icon {
+  display: flex;
+}
+.coach-fab__icon svg {
+  width: 25px;
+  height: 25px;
+}
+.coach-panel {
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  bottom: 76px;
+  width: 380px;
+  max-width: calc(100vw - 48px);
+  height: 600px;
+  max-height: calc(100vh - 160px);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transform-origin: bottom right;
+  opacity: 0;
+  transform: scale(0.95) translateY(12px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.coach-widget--open .coach-panel {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+
+@media (max-width: 480px) {
+  .coach-widget {
+    right: 16px;
+    bottom: 16px;
+  }
+  .coach-fab {
+    width: 54px;
+    height: 54px;
+  }
+  .coach-fab__icon svg {
+    width: 22px;
+    height: 22px;
+  }
+  .coach-panel {
+    right: -8px;
+    bottom: 66px;
+    width: calc(100vw - 24px);
+    height: min(600px, calc(100vh - 130px));
+  }
 }
 
 /* ---------------- Tarjetas / Overview ---------------- */
@@ -2247,7 +2348,6 @@ button {
     font-size: 2.6rem;
   }
   .card--chat {
-    min-height: 420px;
     padding: 18px;
   }
   .chat__head-mark {
@@ -2256,9 +2356,6 @@ button {
   }
   .chat__head-subtitle {
     font-size: 0.76rem;
-  }
-  .chat__messages {
-    max-height: 340px;
   }
   .chat__bubble {
     max-width: 84%;

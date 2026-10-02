@@ -81,7 +81,7 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
 
   const heroKicker = el('span', { class: 'header-hero__kicker' }, ['Agenda · Hábitos · Metas & Coach']);
   const heroDesc = el('p', { class: 'header-hero__desc' }, [
-    'Registra tus hábitos día a día, organiza tus metas y recibe orientación personalizada de tu coach con inteligencia artificial.',
+    'Construye hábitos que se mantienen: organiza tu agenda, cumple tus metas y cuenta con un coach de IA que te acompaña en el camino.',
   ]);
   const headerHero = el('div', { class: 'header-hero' }, [heroKicker, heroDesc]);
 
@@ -144,8 +144,8 @@ export function renderDashboard(root: HTMLElement, userId: string, userEmail: st
 
   const SECTION_HERO = {
     habitos: {
-      kicker: 'Hábitos · Metas & Coach',
-      desc: 'Registra tus hábitos día a día, organiza tus metas y recibe orientación personalizada de tu coach con inteligencia artificial.',
+      kicker: 'Agenda · Hábitos · Metas & Coach',
+      desc: 'Construye hábitos que se mantienen: organiza tu agenda, cumple tus metas y cuenta con un coach de IA que te acompaña en el camino.',
     },
     fitplan: {
       kicker: 'FitPlan · Entrenamiento & Nutrición',

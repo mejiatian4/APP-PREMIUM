@@ -21,7 +21,7 @@ export function initHeaderAutoHide(): void {
   function setHidden(next: boolean): void {
     if (hidden === next) return;
     hidden = next;
-    document.querySelectorAll<HTMLElement>('.ig-topbar, .topbar').forEach((bar) => {
+    document.querySelectorAll<HTMLElement>('.topbar').forEach((bar) => {
       bar.classList.toggle('is-hidden', hidden);
     });
   }

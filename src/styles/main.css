@@ -18,7 +18,7 @@
   --brand-soft-2: #ffd770;
 
   --grad: linear-gradient(135deg, #fcb827 0%, #ffd770 55%, #ffffff 100%);
-  --grad-btn: linear-gradient(135deg, #d99a1a 0%, #fcb827 45%, #ffd770 75%, rgba(255, 255, 255, 0.95) 100%);
+  --grad-btn: linear-gradient(135deg, #d99a1a 0%, #fcb827 50%, #ffd770 100%);
   /* Raya superior de las tarjetas (.card::before aquí y en fitplan.css). */
   --grad-line: linear-gradient(90deg, #fcb827, #ffd770 70%, rgba(255, 255, 255, 0.4));
 
@@ -66,7 +66,6 @@ body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
-  padding-top: 44px; /* deja espacio para la barra fija de Instagram */
   position: relative;
   overflow-x: hidden;
 }
@@ -106,63 +105,7 @@ button {
   border-radius: 6px;
 }
 
-/* ---------------- Barra de Instagram ---------------- */
-.ig-topbar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 44px;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 0 20px;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  will-change: transform;
-  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.ig-topbar.is-hidden {
-  transform: translateY(-100%);
-}
-.ig-icon-wrap {
-  width: 22px;
-  height: 22px;
-  background: linear-gradient(135deg, #fcb827 0%, #ffd770 50%, #fcb827 100%);
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  box-shadow: 0 0 12px rgba(252, 184, 39, 0.3);
-}
-.ig-icon-wrap svg {
-  width: 13px;
-  height: 13px;
-  fill: #000;
-}
-.ig-topbar-text {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.55);
-}
-.ig-topbar-handle {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--brand);
-  letter-spacing: 0.3px;
-  text-decoration: none;
-}
-.ig-topbar-handle:hover {
-  opacity: 0.85;
-}
-
 @media (max-width: 480px) {
-  .ig-topbar-text {
-    display: none;
-  }
   .topbar__shop span {
     display: none;
   }
@@ -210,7 +153,7 @@ button {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   position: fixed;
-  top: 44px;
+  top: 0;
   left: 0;
   right: 0;
   z-index: 10;
@@ -218,11 +161,7 @@ button {
   transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .topbar.is-hidden {
-  /* -100% solo cubre la altura propia del topbar: como además está a
-     top:44px (para dejar sitio a la barra de Instagram), hay que restar
-     también ese desplazamiento o quedan esos 44px inferiores pegados
-     y visibles en la parte de arriba de la pantalla. */
-  transform: translateY(calc(-100% - 44px));
+  transform: translateY(-100%);
 }
 .topbar .brand {
   position: absolute;
@@ -1276,7 +1215,7 @@ button {
 
 /* ---------------- Autenticación ---------------- */
 .auth {
-  min-height: calc(100vh - 44px);
+  min-height: 100vh;
   display: grid;
   place-items: center;
   padding: 24px;
